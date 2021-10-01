@@ -74,6 +74,7 @@ if ($PyCreateUserPkgPath)
     }
     try
     {
+        Write-Verbose "Building packer_user.pkg"
         $PackerPackagePath = Join-Path $Global:RepoBuildOutputDirectory 'packer_user.pkg'
         Start-SilentProcess `
             -FilePath $PyCreateUserPkgPath `
@@ -87,6 +88,7 @@ if ($PyCreateUserPkgPath)
     # Now copy it over to the relevant place
     try
     {
+        Write-Verbose "Copying packer_user.pkg to packer directory"
         Copy-Item $PackerPackagePath -Destination $PackerFilesPath -Force
     }
     catch
