@@ -2,7 +2,15 @@
 #     This script builds the various packages we need to be able to bootstrap macOS deployments.
 #     These packages are them copied to the relevant packer directory so they can be picked up during a deployment
 [CmdletBinding()]
-param ()
+param (
+    # The path to the Python createuserpkg script
+    [Parameter(
+        Mandatory = $false,
+        Position = 0
+    )]
+    [string]
+    $PyCreateUserPkgPath
+)
 $ErrorActionPreference = 'Stop'
 
 # Initialize the repository
@@ -46,13 +54,45 @@ catch
 Write-Verbose "Copying packages to packer directory"
 try
 {
+    $PackerFilesPath = Join-Path $Global:RepoRoot 'macOS' '11.X', 'packer', 'files'
     $BuiltPackages | ForEach-Object {
-        Copy-Item $_ -Destination (Join-Path $Global:RepoRoot 'macOS' '11.X', 'packer', 'files') -Force
+        Copy-Item $_ -Destination $PackerFilesPath -Force
     }
 }
 catch
 {
     Write-Error "Failed to copy built packages to packer directory.`n$($_.Exception.Message)"
+}
+
+# Create the "packer" user by running pycreateuserpkg, we only do this if we've been given a path to the python script
+if ($PyCreateUserPkgPath)
+{
+    Write-Verbose "Updating packer_user.pkg"
+    if (!(Test-Path $PyCreateUserPkgPath))
+    {
+        throw "Cannot find createuserpkg at $PyCreateUserPkgPath"
+    }
+    try
+    {
+        $PackerPackagePath = Join-Path $Global:RepoBuildOutputDirectory 'packer_user.pkg'
+        Start-SilentProcess `
+            -FilePath $PyCreateUserPkgPath `
+            -ArgumentList "-n packer -f packer -p packer -u 525 -V 1 -i com.brownserveuk.packer -a -A -d $PackerPackagePath"
+    }
+    catch
+    {
+        Write-Error "Failed to update packer_user.pkg.`n$($_.Exception.Message)"
+    }
+
+    # Now copy it over to the relevant place
+    try
+    {
+        Copy-Item $PackerPackagePath -Destination $PackerFilesPath -Force
+    }
+    catch
+    {
+        Write-Error "Failed to copy packer_user.pkg.`n$($_.Exception.Message)"
+    }
 }
 
 Write-Host "Build complete" -ForegroundColor Green
