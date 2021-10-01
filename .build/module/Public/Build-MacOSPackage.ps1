@@ -42,6 +42,7 @@ function Build-MacOSPackage
         {
             throw "Output directory $OutputDirectory is not valid.`n$($_.Exception.Message)"
         }
+        $ToReturn = @()
     }
     
     process
@@ -55,7 +56,7 @@ function Build-MacOSPackage
                 break
             }
             # Extract the pkg name from the pkgproj file, we'll need this later
-            $PackageName = (Split-Path $PackageProject -Leaf) -replace '.pkgproj','.pkg'
+            $PackageName = (Split-Path $PackageProject -Leaf) -replace '.pkgproj', '.pkg'
             try
             {
                 Start-SilentProcess `
@@ -69,13 +70,20 @@ function Build-MacOSPackage
                 Write-Error "Failed to build $PackageProject.`n$($_.Exception.Message)"
                 break
             }
+            Write-Verbose "Successfully built $PackageProject"
+            $ToReturn += $BuiltPackage
         }
-        Write-Verbose "Successfully built $PackageProject"
-        Return $BuiltPackage
     }
     
     end
     {
-        
+        if ($ToReturn)
+        {
+            Return $ToReturn
+        }
+        else
+        {
+            Return $null
+        }
     }
 }
