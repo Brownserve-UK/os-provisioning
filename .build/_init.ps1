@@ -2,7 +2,8 @@
 param ()
 $ErrorActionPreference = 'Stop'
 Write-Host "Initializing repository, please wait..."
-$Global:RepoBuildDirectory = Get-Item $PSScriptRoot -Force # Force is needed for dot-dirs on *nix
+$Global:RepoBuildDirectory = Get-Item $PSScriptRoot -Force | Convert-Path # Force is needed for dot-dirs on *nix
+$Global:RepoRoot = Get-Item (Join-Path $PSScriptRoot "..") -Force | Convert-Path
 
 # Ephemeral directories
 $EphemeralDirectories = @(
