@@ -31,3 +31,4 @@ fi
 touch /private/var/db/.AppleSetupDone
 
 echo "OOBE should now be complete"
+exit 0
