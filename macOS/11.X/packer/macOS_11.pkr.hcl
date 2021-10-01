@@ -18,6 +18,11 @@ variable "http_directory" {
   default = "files"
 }
 
+variable "output_directory" {
+  type = string
+  default = "output-macOS11"
+}
+
 variable "ssh_password" {
   type    = string
   default = "packer"
@@ -79,6 +84,7 @@ source "virtualbox-iso" "macos11-vanilla" {
   boot_wait              = var.boot_wait_iso
   boot_keygroup_interval = var.boot_keygroup_interval_iso
   ssh_timeout            = var.ssh_timeout
+  output_directory       = var.output_directory
   boot_command = [
     "<enter><wait10s>",
     "<leftSuperon><f5><leftSuperoff>",
