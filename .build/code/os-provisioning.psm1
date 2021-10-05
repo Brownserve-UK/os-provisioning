@@ -29,7 +29,7 @@ Join-Path $PSScriptRoot -ChildPath 'Public' |
 # Go over the array we just created to see if all of our cmdlets/functions are compatible with the OS we are running
 # If they are then we export it for use, if not then we do not.
 $PublicCmdlets | ForEach-Object {
-    $RegexMatch = [regex]::Match(($_.Description | Out-String), '\[Compatible with:(?<os>.*)\]')
+    $RegexMatch = [regex]::Match(($_.Description | Out-String), '\[Compatible with: (?<os>.*)\]')
     if ($RegexMatch.Success)
     {
         $CompatibleOS = $RegexMatch.Groups['os'] -split ', '
