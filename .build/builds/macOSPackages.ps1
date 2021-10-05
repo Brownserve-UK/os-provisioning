@@ -1,9 +1,11 @@
-# .SYNOPSIS
-#     This script builds the various packages we need to be able to bootstrap macOS deployments.
-#     These packages are them copied to the relevant packer directory so they can be picked up during a deployment
+<#
+.SYNOPSIS
+    This script builds the various packages we need to be able to bootstrap macOS deployments.
+    These packages are them copied to the relevant packer directory so they can be picked up during a deployment
+#>
 [CmdletBinding()]
 param (
-    # The path to the Python createuserpkg script
+    # The path to the Python pycreateuserpkg script
     [Parameter(
         Mandatory = $false,
         Position = 0
@@ -11,24 +13,29 @@ param (
     [string]
     $PyCreateUserPkgPath
 )
+# Always stop on errors
 $ErrorActionPreference = 'Stop'
 
-# Initialize the repository
+Write-Host "Starting build $($MyInvocation.MyCommand)"
+
+# dot source the _init.ps1 script
 try
 {
-    . (Join-Path $PSScriptRoot '..' '_init.ps1')
+    Write-Verbose "Initialising repo"
+    $initScriptPath = Join-Path $PSScriptRoot '..' '_init.ps1' | Convert-Path
+    . $initScriptPath
 }
 catch
 {
-    Write-Error "Failed to initialize the repository"
+    Write-Error "Failed to init repo.`n$($_.Exception.Message)"
 }
 
 # Find any packages we want to build
-# TODO: Param this? Could potentiall use it across multiple builds for different versions of macOS
+# TODO: Param this? Could potentially use it across multiple builds for different versions of macOS
 Write-Verbose "Finding package projects to build"
 try
 {
-    $PackagesToBuild = Get-ChildItem (Join-Path $Global:RepoRoot 'macOS' '11.X', 'packages') -Recurse -Filter "*.pkgproj" | Select-Object -ExpandProperty PSPath
+    $PackagesToBuild = Get-ChildItem (Join-Path $Global:RepoRootDirectory 'macOS' '11.X', 'packages') -Recurse -Filter "*.pkgproj" | Select-Object -ExpandProperty PSPath
 }
 catch
 {
@@ -54,7 +61,7 @@ catch
 Write-Verbose "Copying packages to packer directory"
 try
 {
-    $PackerFilesPath = Join-Path $Global:RepoRoot 'macOS' '11.X', 'packer', 'files'
+    $PackerFilesPath = Join-Path $Global:RepoRootDirectory 'macOS' '11.X', 'packer', 'files'
     $BuiltPackages | ForEach-Object {
         Copy-Item $_ -Destination $PackerFilesPath -Force
     }
@@ -70,7 +77,7 @@ if ($PyCreateUserPkgPath)
     Write-Verbose "Updating packer_user.pkg"
     if (!(Test-Path $PyCreateUserPkgPath))
     {
-        throw "Cannot find createuserpkg at $PyCreateUserPkgPath"
+        throw "Cannot find pycreateuserpkg at $PyCreateUserPkgPath"
     }
     try
     {
@@ -97,4 +104,4 @@ if ($PyCreateUserPkgPath)
     }
 }
 
-Write-Host "Build complete" -ForegroundColor Green
+Write-Host "Build $($MyInvocation.MyCommand) completed successfully! 🎉" -ForegroundColor Green
