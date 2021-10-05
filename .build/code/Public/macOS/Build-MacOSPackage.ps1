@@ -49,6 +49,7 @@ function Build-MacOSPackage
     {
         foreach ($PackageProject in $PackageProjectPath)
         {
+            $PackageProject = Convert-Path $PackageProject
             Write-Verbose "Attempting to build $PackageProject"
             if (!(Test-Path $PackageProject) -or ($PackageProject -notlike "*.pkgproj"))
             {
@@ -61,7 +62,7 @@ function Build-MacOSPackage
             {
                 Start-SilentProcess `
                     -FilePath 'packagesbuild' `
-                    -ArgumentList "$(Convert-Path $PackageProject) --build-folder $AbsoluteOutputPath"
+                    -ArgumentList "$PackageProject --build-folder $AbsoluteOutputPath"
                 # Grab the built package so we can return it
                 $BuiltPackage = Get-Item (Join-Path $AbsoluteOutputPath $PackageName) -ErrorAction Stop
             }
