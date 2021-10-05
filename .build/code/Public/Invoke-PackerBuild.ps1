@@ -65,7 +65,7 @@ function Invoke-PackerBuild
         [Parameter(
             Mandatory = $false
         )]
-        [Alias(EnableColour)]
+        [Alias('EnableColour')]
         [switch]
         $EnableColor
     )
