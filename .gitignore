@@ -1,2 +1,12 @@
 # Ignore the build output directory
-.build/output/*
+paket.lock
+
+packages/
+
+paket-files/
+
+.log/
+
+.build/output/
+
+.bin/
