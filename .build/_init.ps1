@@ -118,7 +118,7 @@ if ((Get-Module 'Brownserve.PSTools'))
 try
 {
     Write-Verbose "Importing Brownserve.PSTools module"
-    Import-Module (Join-Path $Global:RepoPackagesDirectory 'Brownserve.PSTools', 'tools', 'Brownserve.PSTools.psd1') -Force -Verbose:$false
+    Import-Module (Join-Path $Global:RepoPackagesDirectory 'Brownserve.PSTools' 'Brownserve.PSTools.psd1') -Force -Verbose:$false
 }
 catch
 {
