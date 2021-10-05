@@ -6,21 +6,25 @@ packer {
 variable "iso_file_checksum" {
   type    = string
   default = "file:images/macOS_11.shasum"
+  description = "The checksum for the macOS ISO"
 }
 
 variable "iso_filename" {
   type    = string
   default = "images/macOS_11.iso"
+  description = "The macOS ISO to use for this build"
 }
 
 variable "http_directory" {
   type    = string
   default = "files"
+  description = "The directory to use as our HTTP server (so we can get to our bootstrap files)"
 }
 
 variable "output_directory" {
   type = string
   default = "output-macOS11"
+  description = "The directory to use to store the output from this build"
 }
 
 variable "ssh_password" {
