@@ -194,7 +194,7 @@ function Build-MacOSImage
         }
 
         # Create a disk image for us to install to
-        $InstallDiskLocation = Join-Path $Global:RepoBuildOutputDirectory $FinalImageName
+        $InstallDiskLocation = Join-Path $OutputDirectory $FinalImageName
         $VolumeName = "/Volumes/$FinalImageName"
         Write-Verbose "Creating a disk image to install to"
         $InstallDiskArgs = @(
@@ -298,7 +298,7 @@ function Build-MacOSImage
         if ($CreateISO)
         {
             Write-Verbose "Converting $InstallDiskLocation.dmg into an ISO"
-            $CDRPath = Join-Path $Global:RepoBuildOutputDirectory "$FinalImageName"
+            $CDRPath = Join-Path $OutputDirectory "$FinalImageName"
             $ConvertArgs = @(
                 'convert',
                 "$DMGPath",
@@ -316,28 +316,42 @@ function Build-MacOSImage
                 
                 # The ISO will actually be a CDR, we'll need to convert it to an ISO
                 Rename-Item "$CDRPath.cdr" -NewName "$FinalImageName.iso"
-                $Return.Add('ISOPath', (Join-Path $Global:RepoBuildOutputDirectory "$FinalImageName.iso" | Convert-Path))
+                $ISOPath = Join-Path $OutputDirectory "$FinalImageName.iso" | Convert-Path
+                $Return.Add('ISOPath',$ISOPath)
             }
             catch
             {
                 throw "Failed to convert $InstallDiskLocation.dmg into an ISO.`n$($_.Exception.Message)"
             }
-            if ($DiscardDMG)
+            try
             {
-                Write-Verbose "Removing DMG file"
-                try
-                {
-                    Remove-Item $DMGPath -Force -Confirm:$false
-                }
-                catch
-                {
-                    Write-Error "Failed to remove DMG file $DMGPath"
-                }
+                Write-Verbose "Generating shasum of $ISOPath"
+                $SHASum = Start-SilentProcess `
+                    -FilePath 'shasum' `
+                    -ArgumentList "-a 256 $ISOPath" `
+                    -PassThru | Select-Object -ExpandProperty OutputContent
+                New-Item (Join-Path $OutputDirectory "$FinalImageName.iso.shasum") -Value ($SHASum -replace " $ISOPath",'') | Out-Null
             }
-            else
+            catch
             {
-                $Return.Add('DMGPath',$DMGPath)
+                throw "Failed to generate ISO shasum.`n$($_.Exception.Message)"
             }
+        }
+        if ($DiscardDMG)
+        {
+            Write-Verbose "Removing DMG file"
+            try
+            {
+                Remove-Item $DMGPath -Force -Confirm:$false
+            }
+            catch
+            {
+                Write-Error "Failed to remove DMG file $DMGPath"
+            }
+        }
+        else
+        {
+            $Return.Add('DMGPath', $DMGPath)
         }
 
     }
