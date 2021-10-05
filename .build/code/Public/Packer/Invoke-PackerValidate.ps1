@@ -19,7 +19,14 @@ function Invoke-PackerValidate
             Position = 0
         )]
         [string]
-        $PackerTemplate
+        $PackerTemplate,
+
+        # The working directory to use (useful for handling Packer's relative paths)
+        [Parameter(
+            Mandatory = $false
+        )]
+        [string]
+        $WorkingDirectory
     )
     
     begin
@@ -35,12 +42,23 @@ function Invoke-PackerValidate
     }
     process
     {
-        $PackerParams = @('validate', $PackerTemplate)
+        Write-Verbose "Validating Packer configuration $PackerTemplate"
+        $PackerArgs = @('validate', $PackerTemplate)
+        $StartSilentProcParams = @{
+            FilePath = 'packer'
+            ArgumentList = $PackerArgs
+        }
+        if ($WorkingDirectory)
+        {
+            if (!(Test-Path $WorkingDirectory))
+            {
+                throw "Working directory $WorkingDirectory is not valid"
+            }
+            $StartSilentProcParams.Add('WorkingDirectory',$WorkingDirectory)
+        }
         try
         {
-            Start-SilentProcess `
-                -FilePath 'packer' `
-                -ArgumentList $PackerParams
+            Start-SilentProcess @StartSilentProcParams
         }
         catch
         {

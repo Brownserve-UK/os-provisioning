@@ -67,7 +67,14 @@ function Invoke-PackerBuild
         )]
         [Alias('EnableColour')]
         [switch]
-        $EnableColor
+        $EnableColor,
+
+        # The working directory to use (useful for handling Packer's relative paths)
+        [Parameter(
+            Mandatory = $false
+        )]
+        [string]
+        $WorkingDirectory
     )
     
     begin
@@ -115,11 +122,22 @@ function Invoke-PackerBuild
             }
         }
         $PackerArgs += "$($PackerTemplate | Convert-Path)"
+        $SilentProcParams = @{
+            FilePath = 'packer'
+            ArgumentList = $PackerArgs
+        }
+        if ($WorkingDirectory)
+        {
+            if (!(Test-Path $WorkingDirectory))
+            {
+                throw "Working directory $WorkingDirectory is not valid"
+            }
+            $SilentProcParams.Add('WorkingDirectory',$WorkingDirectory)
+        }
+        Write-Verbose "Beginning Packer build for $PackerTemplate"
         try
         {
-            Start-SilentProcess `
-                -FilePath 'packer' `
-                -ArgumentList $PackerArgs
+            Start-SilentProcess @SilentProcParams
         }
         catch
         {
