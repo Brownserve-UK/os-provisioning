@@ -7,6 +7,11 @@ param ()
 # Always stop on errors
 $ErrorActionPreference = 'Stop'
 
+if (!$IsMacOS)
+{
+    throw "This build can only currently be run on Apple hardware, sorry!"
+}
+
 Write-Host "Starting build $($MyInvocation.MyCommand)"
 
 # dot source the _init.ps1 script
@@ -59,7 +64,10 @@ $macOSVersions | ForEach-Object {
     }
 
     # Now we can run the packer build(s)
-    
+    $PackerTemplates = Get-ChildItem $VersionChildItems | Where-Object {$_.Name -match ".hcl|.json"} | Select-Object -ExpandProperty PSPath | ForEach-Object {
+        Invoke-PackerValidate (Convert-Path $_)
+        Invoke-PackerBuild (Convert-Path $_)
+    }
 }
 
 Write-Host "Build $($MyInvocation.MyCommand) completed successfully! 🎉" -ForegroundColor Green
