@@ -1,17 +1,16 @@
 <#
 .SYNOPSIS
-    Short description
+    Invokes Packer to perform a build using a given template file
 .DESCRIPTION
-    Long description
+    This cmdlet will call Packer to perform a build using the specified template file
+    (essentially this is just a PowerShell wrapper for Packer).
 .EXAMPLE
-    PS C:\> <example usage>
-    Explanation of what the example does
-.INPUTS
-    Inputs (if any)
-.OUTPUTS
-    Output (if any)
+    PS C:\> Invoke-PackerBuild C:\windows10.pkr.hcl
+    
+    This would run a build using the template file C:\windows10.pkr.hcl
 .NOTES
-    General notes
+    Packer looks for paths relative to the current working directory so your templates either need to reference locations
+    properly, or you need to set the working directory before calling this cmdlet.
 #>
 function Invoke-PackerBuild
 {
@@ -39,11 +38,12 @@ function Invoke-PackerBuild
         [array]
         $Only,
 
-        # If the build fails do: clean up (default), abort, ask, or run-cleanup-provisioner.
+        # If the build fails do: clean up (default), abort, or run-cleanup-provisioner.
+        # (ask is disabled as we do not connect to StdIn)
         [Parameter(
             Mandatory = $false
         )]
-        [ValidateSet('cleanup','abort','ask','run-cleanup-provisioner')]
+        [ValidateSet('cleanup', 'abort', 'run-cleanup-provisioner')]
         [string]
         $OnError,
 
@@ -51,7 +51,7 @@ function Invoke-PackerBuild
         [Parameter(
             Mandatory = $false
         )]
-        [array]
+        [hashtable]
         $TemplateVariables,
 
         # Add timestamps to stdout
@@ -61,7 +61,7 @@ function Invoke-PackerBuild
         [switch]
         $EnableTimestamps,
 
-        # If set will enable color output
+        # If set will enable color output, disabled by default for CI/CD deployments
         [Parameter(
             Mandatory = $false
         )]
@@ -70,15 +70,64 @@ function Invoke-PackerBuild
         $EnableColor
     )
     
-    begin {
-        
+    begin
+    {
+        if ($Only -and $Except)
+        {
+            throw "Cannot specify both 'Except' and 'Only'"
+        }
+        if (!(Test-Path $PackerTemplate))
+        {
+            throw "Packer template $PackerTemplate not found."
+        }
+        if ($PackerTemplate -notmatch '.hcl|.json')
+        {
+            throw "$PackerTemplate does not appear to be a packer template file"
+        }
     }
-    
-    process {
-        
+    process
+    {
+        $PackerArgs = @("build")
+        if (!$EnableColor)
+        {
+            $PackerArgs += '--color=false'
+        }
+        if ($Except)
+        {
+            $PackerArgs += "--except=$($Except -join ',')"
+        }
+        if ($Only)
+        {
+            $PackerArgs += "--only=$($Only -join ',')"
+        }
+        if ($OnError)
+        {
+            $PackerArgs += "--on-error=$OnError"
+        }
+        if ($EnableTimestamps)
+        {
+            $PackerArgs += "--timestamp-ui"
+        }
+        if ($TemplateVariables)
+        {
+            $TemplateVariables.GetEnumerator() | ForEach-Object {
+                $PackerArgs += "--var '$($_.Name)=$($_.Value)'"
+            }
+        }
+        $PackerArgs += "$($PackerTemplate | Convert-Path)"
+        try
+        {
+            Start-SilentProcess `
+                -FilePath 'packer' `
+                -ArgumentList $PackerArgs
+        }
+        catch
+        {
+            throw "Failed to build packer template $PackerTemplate.`n$($_.Exception.Message)"
+        }
     }
-    
-    end {
-        
+    end
+    {
+
     }
 }
