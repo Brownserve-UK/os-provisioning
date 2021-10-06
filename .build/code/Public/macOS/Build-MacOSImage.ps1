@@ -59,7 +59,11 @@ function Build-MacOSImage
         {
             throw "Cannot set DiscardDMG without specifying CreateISO"
         }
-        # Test root access once we have the cmdlet live
+        # Test root access
+        if (!(Test-Administrator))
+        {
+            throw "This script must be run as root"
+        }
     }
     
     process
@@ -317,6 +321,7 @@ function Build-MacOSImage
                 # The ISO will actually be a CDR, we'll need to convert it to an ISO
                 Rename-Item "$CDRPath.cdr" -NewName "$FinalImageName.iso"
                 $ISOPath = Join-Path $OutputDirectory "$FinalImageName.iso" | Convert-Path
+                Write-Debug "ISO path = $ISOPath"
                 $Return.Add('ISOPath',$ISOPath)
             }
             catch
@@ -330,7 +335,10 @@ function Build-MacOSImage
                     -FilePath 'shasum' `
                     -ArgumentList "-a 256 $ISOPath" `
                     -PassThru | Select-Object -ExpandProperty OutputContent
-                New-Item (Join-Path $OutputDirectory "$FinalImageName.iso.shasum") -Value ($SHASum -replace " $ISOPath",'') | Out-Null
+                $SHASum = $SHASum -replace " $ISOPath",''
+                Write-Debug "ISO SHAsum = $SHASum"
+                New-Item (Join-Path $OutputDirectory "$FinalImageName.iso.shasum") -Value $SHASum | Out-Null
+                $Return.Add('ISOSHASum',$SHASum)
             }
             catch
             {
@@ -351,6 +359,7 @@ function Build-MacOSImage
         }
         else
         {
+            Write-Debug "DMG path = $DMGPath"
             $Return.Add('DMGPath', $DMGPath)
         }
 
