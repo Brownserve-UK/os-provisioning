@@ -21,6 +21,13 @@ function Invoke-PackerValidate
         [string]
         $PackerTemplate,
 
+        # Any variables to set
+        [Parameter(
+            Mandatory = $false
+        )]
+        [hashtable]
+        $TemplateVariables,
+
         # The working directory to use (useful for handling Packer's relative paths)
         [Parameter(
             Mandatory = $false
@@ -43,7 +50,14 @@ function Invoke-PackerValidate
     process
     {
         Write-Verbose "Validating Packer configuration $PackerTemplate"
-        $PackerArgs = @('validate', $PackerTemplate)
+        $PackerArgs = @('validate')
+        if ($TemplateVariables)
+        {
+            $TemplateVariables.GetEnumerator() | ForEach-Object {
+                $PackerArgs += "--var '$($_.Name)=$($_.Value)'"
+            }
+        }
+        $PackerArgs += "$PackerTemplate"
         $StartSilentProcParams = @{
             FilePath = 'packer'
             ArgumentList = $PackerArgs
