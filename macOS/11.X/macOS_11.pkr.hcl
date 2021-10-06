@@ -5,7 +5,7 @@ packer {
 
 variable "iso_file_checksum" {
   type    = string
-  default = "file:images/macOS_11.shasum"
+  default = "file:images/macOS_11.iso.shasum"
   description = "The checksum for the macOS ISO"
 }
 
@@ -23,7 +23,7 @@ variable "http_directory" {
 
 variable "output_directory" {
   type = string
-  default = "output-macOS11"
+  default = "packer-output"
   description = "The directory to use to store the output from this build"
 }
 
