@@ -21,6 +21,8 @@ if (!$IsMacOS)
 }
 
 Write-Host "Starting build $($MyInvocation.MyCommand)"
+$BuildTimer = New-Object -TypeName System.Diagnostics.Stopwatch
+$BuildTimer.Start()
 
 # We don't dot source the _init script in this build as we run as root and it creates problems with
 # our ephemeral paths :(
@@ -38,9 +40,18 @@ $macOSVersions = Get-ChildItem (Join-Path $Global:RepoRootDirectory 'macOS') | W
 $macOSVersions | ForEach-Object {
     Write-Verbose "Now preparing to build macOS $($_.Name)"
 
+    # Find the path to the macOS Installer for this version of macOS
+    try
+    {
+        $InstallerPath = Get-MacOSInstallerPath "$($_.Name)"
+    }
+    catch
+    {
+        throw $_.Exception.Message
+    }
+
     $BuildOutputDirectory = Join-Path $Global:RepoBuildOutputDirectory "macOS_$($_.Name)"
     New-Item $BuildOutputDirectory -ItemType Directory -Force | Out-Null
-    Write-Verbose "Build artifacts will be stored in $BuildOutputDirectory"
 
     # Create the directory for things that get passed into packer builds, either via HTTP or via provisioners
     $script:PackerFilesDirectory = New-Item (Join-Path $BuildOutputDirectory 'files') -ItemType Directory -Force
@@ -48,6 +59,25 @@ $macOSVersions | ForEach-Object {
     $script:PackerImagesDirectory = New-Item (Join-Path $BuildOutputDirectory 'images') -ItemType Directory -Force
 
     # Build our ISO
+    Write-Verbose "Attempting to build ISO image"
+    try
+    {
+        $macOSImage = Build-MacOSImage `
+            -MacOSInstallerPath $InstallerPath `
+            -OutputDirectory $script:PackerImagesDirectory `
+            -CreateISO `
+            -DiscardDMG `
+            -Verbose:($PSBoundParameters['Verbose'] -eq $true)
+    }
+    catch
+    {
+        throw $_.Exception.Message
+    }
+    $PackerVariables = @{
+        iso_filename      = $macOSImage.ISOPath
+        iso_file_checksum = $macOSImage.ISOSHASum
+    }
+
 
     # Find out what items we have in our version directory
     $VersionChildItems = Get-ChildItem $_
@@ -104,9 +134,11 @@ $macOSVersions | ForEach-Object {
 
     # Now we can run the packer build(s)
     Get-ChildItem $VersionChildItems | Where-Object { $_.Name -match ".hcl|.json" } | Select-Object -ExpandProperty PSPath | ForEach-Object {
-        Invoke-PackerValidate (Convert-Path $_) -WorkingDirectory $BuildOutputDirectory
-        Invoke-PackerBuild (Convert-Path $_) -WorkingDirectory $BuildOutputDirectory
+        Invoke-PackerValidate (Convert-Path $_) -WorkingDirectory $BuildOutputDirectory -TemplateVariables $PackerVariables
+        Invoke-PackerBuild (Convert-Path $_) -WorkingDirectory $BuildOutputDirectory -TemplateVariables $PackerVariables
     }
 }
 
-Write-Host "Build $($MyInvocation.MyCommand) completed successfully! 🎉" -ForegroundColor Green
+$BuildTimer.Stop()
+$BuildTime = $BuildTimer.Elapsed.Minutes
+Write-Host "Build $($MyInvocation.MyCommand) completed successfully in $BuildTime minutes! 🎉" -ForegroundColor Green
