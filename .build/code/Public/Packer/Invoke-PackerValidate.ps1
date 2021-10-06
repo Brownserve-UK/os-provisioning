@@ -54,7 +54,7 @@ function Invoke-PackerValidate
         if ($TemplateVariables)
         {
             $TemplateVariables.GetEnumerator() | ForEach-Object {
-                $PackerArgs += "--var '$($_.Name)=$($_.Value)'"
+                $PackerArgs += @("--var","$($_.Name)=$($_.Value)")
             }
         }
         $PackerArgs += "$PackerTemplate"
