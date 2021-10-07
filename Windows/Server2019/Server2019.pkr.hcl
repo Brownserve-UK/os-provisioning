@@ -16,8 +16,8 @@ variable "iso_filename" {
 }
 
 variable "floppy_directory" {
-  type        = string
-  default     = "files/"
+  type        = list(string)
+  default     = ["files/autounattend.xml","files/functions.ps1","files/bootstrap.ps1"]
   description = "The directory to be mounted as a floppy disk"
 }
 
@@ -76,7 +76,6 @@ variable "output_directory" {
 source "virtualbox-iso" "server2019-iso" {
   guest_os_type        = "Windows2019_64"
   guest_additions_mode = "disable"
-  firmware             = "efi"
   disk_size            = "40000"
   gfx_vram_size        = "128"
   memory               = 4096
@@ -86,7 +85,7 @@ source "virtualbox-iso" "server2019-iso" {
   chipset              = "piix3"
   shutdown_command     = "${var.sysprep_command}"
   communicator         = "winrm"
-  floppy_dirs          = "${var.floppy_directory}"
+  floppy_files         = "${var.floppy_directory}"
   iso_url              = "${var.iso_filename}"
   iso_checksum         = "${var.iso_file_checksum}"
   winrm_port           = var.winrm_port
