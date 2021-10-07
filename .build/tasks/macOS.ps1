@@ -1,17 +1,19 @@
 <#
 .SYNOPSIS
-    Short description
+    This script contains all our build tasks for macOS.
 .DESCRIPTION
-    Long description
+    We use Invoke-Build to help run our build pipelines and this script contains all the build tasks 
+    that Invoke-Build needs to run.
 .EXAMPLE
-    PS C:\> <example usage>
-    Explanation of what the example does
-.INPUTS
-    Inputs (if any)
-.OUTPUTS
-    Output (if any)
+    Invoke-Build `
+        -File ./.build/tasks/macOS.ps1 `
+        -Task BuildPackerImages `
+        -ConfigurationDirectory (Convert-Path ./macOS/11/) `
+        -PyCreateUserPkgPath ~/Documents/Repos/Personal/pycreateuserpkg/createuserpkg 
+
+    This would run the "BuildPackagerImages" task.
 .NOTES
-    General notes
+    N/A
 #>
 [CmdletBinding()]
 param
@@ -31,7 +33,7 @@ param
     $PyCreateUserPkgPath
 )
 # Get the version number from the directory name
-$macOSVersion = Split-Path $ConfigurationDirectory -Leaf | Out-String
+$macOSVersion = Split-Path $ConfigurationDirectory -Leaf
 
 # Set the build output directory
 $script:BuildOutputDirectory = Join-Path $Global:RepoBuildOutputDirectory "macOS_$macOSVersion"
@@ -51,14 +53,16 @@ task BuildISO MakeOutputDirectory, {
     $InstallerPath = Get-MacOSInstallerPath $macOSVersion
 
     <# 
-        Unfortunately we need to build the ISO as root :( and PowerShell doesn't have a super neat way of doing so.
-        So we create a script block and invoke a new process using sudo.
-
+        Unfortunately we need to build the ISO as root and PowerShell doesn't have a super neat way of sudo'ing
+        while retaining the current environment 😞
+        So we create a script block and invoke a new process using sudo to call PowerShell and pass in our scriptblock.
+        The cool thing is that PowerShell returns output exactly as it is meaning we can get objects returned.
+        This means we can easily consume those back in our calling process!! 🎉
     #>
     $ScriptToRun = { param($InstallerPath, $PackerImagesDirectory)
         try
         {
-            # We want to avoid our usual spam
+            # We want to avoid our usual spam as it pollutes the return object
             $Global:BrownserveCmdlets = @{
                 CompatibleCmdlets   = @()
                 IncompatibleCmdlets = @()
@@ -75,7 +79,7 @@ task BuildISO MakeOutputDirectory, {
         }
         catch
         {
-            throw "Failed to build ISO.`n$($_.Exception.Message)"
+            throw \"Failed to build ISO.`n$($_.Exception.Message)\"
         }
     }
 
@@ -94,7 +98,9 @@ task BuildPackages MakeOutputDirectory, {
     $PackagesDirectory = Join-Path $ConfigurationDirectory 'packages'
     try
     {
-        $PackagesToBuild = Get-ChildItem $PackagesDirectory -Recurse -Filter "*.pkgproj" | Select-Object -ExpandProperty PSPath
+        $PackagesToBuild = Get-ChildItem $PackagesDirectory `
+            -Recurse `
+            -Filter "*.pkgproj" | Select-Object -ExpandProperty PSPath
     }
     catch
     {
@@ -150,7 +156,7 @@ task CopyScripts MakeOutputDirectory, {
     if ((Test-Path $ScriptsDirectory))
     {
         Write-Verbose "Copying deployment scripts"
-        Get-ChildItem $ScriptsDir -Recurse | Copy-Item -Destination $script:PackerFilesDirectory
+        Get-ChildItem $ScriptsDirectory -Recurse | Copy-Item -Destination $script:PackerFilesDirectory
     }
 }
 
@@ -163,7 +169,17 @@ task BuildPackerImages CopyScripts, BuildPackages, BuildISO, MakeOutputDirectory
         throw "No Packer builds found for $ConfigurationDirectory"
     }
     $PackerBuilds | ForEach-Object {
-        Invoke-PackerValidate (Convert-Path $_) -WorkingDirectory $script:BuildOutputDirectory -TemplateVariables $script:PackerVariables
-        Invoke-PackerBuild (Convert-Path $_) -WorkingDirectory $script:BuildOutputDirectory -TemplateVariables $script:PackerVariables
+        # First validate the config
+        Invoke-PackerValidate `
+            -PackerTemplate (Convert-Path $_) `
+            -WorkingDirectory $script:BuildOutputDirectory `
+            -TemplateVariables $script:PackerVariables `
+            -Verbose:($PSBoundParameters['Verbose'] -eq $true)
+        # Then build
+        Invoke-PackerBuild `
+            -PackerTemplate (Convert-Path $_) `
+            -WorkingDirectory $script:BuildOutputDirectory `
+            -TemplateVariables $script:PackerVariables `
+            -Verbose:($PSBoundParameters['Verbose'] -eq $true)
     }
 }
