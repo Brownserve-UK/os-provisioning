@@ -69,10 +69,10 @@ task GetISO {
         Where-Object { $_.Name -eq "$WindowsVersion.iso" } | 
             Select-Object -ExpandProperty PSPath |
                 Convert-Path
-    $ISOChecksum = Get-ChildItem $ISODirectory -Recurse | 
+    $ISOChecksumFile = Get-ChildItem $ISODirectory -Recurse | 
         Where-Object { $_.Name -eq "$WindowsVersion.iso.shasum" } | 
-            Select-Object -ExpandProperty PSPath |
-                Convert-Path
+            Select-Object -ExpandProperty PSPath
+    $ISOChecksum = Get-Content $ISOChecksumFile -Raw
 
     if (!$ISO)
     {
@@ -102,4 +102,25 @@ task CopyFiles MakeOutputDirectory, {
 
 task BuildPackerImages CopyFiles, GetISO, {
     Write-Verbose "Building"
+    $PackerBuilds = Get-ChildItem $ConfigurationDirectory | 
+        Where-Object { $_.Name -match ".hcl|.json" } | 
+            Select-Object -ExpandProperty PSPath
+    if (!$PackerBuilds)
+    {
+        throw "No Packer builds found for $ConfigurationDirectory"
+    }
+    $PackerBuilds | ForEach-Object {
+        # First validate the config
+        Invoke-PackerValidate `
+            -PackerTemplate (Convert-Path $_) `
+            -WorkingDirectory $script:BuildOutputDirectory `
+            -TemplateVariables $script:PackerVariables `
+            -Verbose:($PSBoundParameters['Verbose'] -eq $true)
+        # Then build
+        Invoke-PackerBuild `
+            -PackerTemplate (Convert-Path $_) `
+            -WorkingDirectory $script:BuildOutputDirectory `
+            -TemplateVariables $script:PackerVariables `
+            -Verbose:($PSBoundParameters['Verbose'] -eq $true)
+    }
 }
