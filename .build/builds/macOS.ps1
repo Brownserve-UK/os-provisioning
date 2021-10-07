@@ -15,31 +15,24 @@ param
 # Always stop on errors
 $ErrorActionPreference = 'Stop'
 
+# We need to be running on macOS hardware
 if (!$IsMacOS)
 {
     throw "This build can only currently be run on Apple hardware, sorry!"
 }
 
-Write-Host "Starting build $($MyInvocation.MyCommand)"
-$BuildTimer = New-Object -TypeName System.Diagnostics.Stopwatch
-$BuildTimer.Start()
-$Success = $false
-
-# dot source the _init.ps1 script
 try
 {
+    Write-Host "Starting build $($MyInvocation.MyCommand)"
+    $BuildTimer = New-Object -TypeName System.Diagnostics.Stopwatch
+    $BuildTimer.Start()
+    $Success = $false
+
+    # dot source the _init.ps1 script
     Write-Verbose "Initialising repo"
     $initScriptPath = Join-Path $PSScriptRoot -ChildPath '_init.ps1' | Convert-Path
     . $initScriptPath
-}
-catch
-{
-    Write-Error "Failed to init repo.`n$($_.Exception.Message)"
-}
 
-
-try
-{
     # First we need to get the list of macOS versions we currently build for
     # We do this by getting the child items of os-provisioning/macOS
     Get-ChildItem (Join-Path $Global:RepoRootDirectory 'macOS') | 
