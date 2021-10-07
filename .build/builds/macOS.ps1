@@ -5,7 +5,7 @@
 [CmdletBinding()]
 param
 (
-    # The path to PyCreateUserPkgPath
+    # The path to the createuserpkg python script
     [Parameter(
         Mandatory = $false
     )]

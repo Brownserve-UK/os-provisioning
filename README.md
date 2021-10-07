@@ -7,7 +7,21 @@ We break down our configurations by operating system release (e.g. Windows 10, m
 Detailed information for each of these can be found in the README's located in their respective directories.
 
 We use PowerShell to run our build pipelines across our CI/CD providers and our builds are stored in the [builds](.build/builds/) directory.  
-For more information on a given build check out the script file.
+We use [Invoke-Build](https://github.com/nightroman/Invoke-Build) to help break down our builds into simple to manage tasks, which are all found in the [./.build/tasks](.build/tasks/) directory.  
+  
+For more information on a given build/tasks check out the relevant script file.
+
+# Building
+
+## Prerequisites
+Before being able to run any of the builds in the builds directory, you'll need the following:
+* PowerShell Core available and on your path
+* The relevant virtualisation host (currently we only use VirtualBox but this may change in the future)
+* The VirtualBox [extension pack](https://www.virtualbox.org/wiki/Downloads) (about halfway down the page)
+
+## Running builds
+Typically you'll just want to call the relevant script for the OS your building from the builds directory.  
+However there may be additional prerequisites/steps which will be detailed in the README file for the OS you wish to build.
 
 # Contributing
 This repo is designed to be used and consumed by our other projects and as such it has been built with some very specific use cases in mind.  

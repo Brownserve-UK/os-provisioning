@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # This script configures the out of box experience (or whatever the macOS equivalent is called) so that we skip
-# things like the "screen time" and "Siri" set-up.
+# things like the "screen time" and "Siri" set-ups.
+# If you're installing a language other than English, make sure to change the user_locale below
 
 echo "Setting OOBE options"
 

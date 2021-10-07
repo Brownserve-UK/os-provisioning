@@ -1,4 +1,6 @@
 #!/bin/bash
+# This script assists in bootstrapping the Install process by preparing the system and injecting our special packages
+# into the install process.
 set -euo pipefail
 IFS=$'\n\t'
 shopt -s nullglob nocaseglob
