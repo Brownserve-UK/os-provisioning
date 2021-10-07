@@ -148,6 +148,7 @@ catch
 {
     throw "Failed to import Invoke-Build module.`n$($_.Exception.Message)"
 }
+$global:BuildTasksDirectory = Join-Path $Global:RepoBuildDirectory 'tasks' | Convert-Path
 ### End user defined _init steps
 
 # If we're not suppressing output then we'll pipe out a list of cmdlets that are now available to the user along with
