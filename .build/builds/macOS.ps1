@@ -23,122 +23,57 @@ if (!$IsMacOS)
 Write-Host "Starting build $($MyInvocation.MyCommand)"
 $BuildTimer = New-Object -TypeName System.Diagnostics.Stopwatch
 $BuildTimer.Start()
+$Success = $false
 
-# We don't dot source the _init script in this build as we run as root and it creates problems with
-# our ephemeral paths :(
-# We could potentially lock this build behind a CI/CD moniker if we need to, but for now let's just try running
-# _init before all our builds :)
-
-if (!$Global:RepoRootDirectory)
+# dot source the _init.ps1 script
+try
 {
-    throw "Cannot find '`$global:RepoRootDirectory' have you run the _init.ps1 script?"
+    Write-Verbose "Initialising repo"
+    $initScriptPath = Join-Path $PSScriptRoot -ChildPath '_init.ps1' | Convert-Path
+    . $initScriptPath
+}
+catch
+{
+    Write-Error "Failed to init repo.`n$($_.Exception.Message)"
 }
 
-# First we need to get the list of macOS versions we currently build for
-$macOSVersions = Get-ChildItem (Join-Path $Global:RepoRootDirectory 'macOS') | Where-Object { $_.PSIsContainer }
 
-$macOSVersions | ForEach-Object {
-    Write-Verbose "Now preparing to build macOS $($_.Name)"
+try
+{
+    # First we need to get the list of macOS versions we currently build for
+    # We do this by getting the child items of os-provisioning/macOS
+    Get-ChildItem (Join-Path $Global:RepoRootDirectory 'macOS') | 
+        Where-Object { $_.PSIsContainer } | 
+            ForEach-Object {
+                Write-Verbose "Now preparing to build macOS $($_.Name)"
 
-    # Find the path to the macOS Installer for this version of macOS
-    try
+                $IBParams = @{
+                    File                   = (Join-Path $global:BuildTasksDirectory 'macOS.ps1')
+                    Task                   = 'BuildPackerImages'
+                    ConfigurationDirectory = ($_ | Convert-Path)
+                }
+                if ($PyCreateUserPkgPath)
+                {
+                    $IBParams.Add('PyCreateUserPkgPath', $PyCreateUserPkgPath)
+                }
+                Invoke-Build @IBParams -Verbose:($PSBoundParameters['Verbose'] -eq $true)
+            }
+    $Success = $true
+}
+catch
+{
+    $ErrorMessage = $_.Exception.Message
+}
+finally
+{
+    $BuildTimer.Stop()
+    $BuildTime = $BuildTimer.Elapsed.Minutes
+    if ($Success)
     {
-        $InstallerPath = Get-MacOSInstallerPath "$($_.Name)"
+        Write-Host "Build $($MyInvocation.MyCommand) completed successfully in $BuildTime minutes! 🎉" -ForegroundColor Green
     }
-    catch
+    else
     {
-        throw $_.Exception.Message
-    }
-
-    $BuildOutputDirectory = Join-Path $Global:RepoBuildOutputDirectory "macOS_$($_.Name)"
-    New-Item $BuildOutputDirectory -ItemType Directory -Force | Out-Null
-
-    # Create the directory for things that get passed into packer builds, either via HTTP or via provisioners
-    $script:PackerFilesDirectory = New-Item (Join-Path $BuildOutputDirectory 'files') -ItemType Directory -Force
-    # Create the directory for storing the ISO/images
-    $script:PackerImagesDirectory = New-Item (Join-Path $BuildOutputDirectory 'images') -ItemType Directory -Force
-
-    # Build our ISO
-    Write-Verbose "Attempting to build ISO image"
-    try
-    {
-        $macOSImage = Build-MacOSImage `
-            -MacOSInstallerPath $InstallerPath `
-            -OutputDirectory $script:PackerImagesDirectory `
-            -CreateISO `
-            -DiscardDMG `
-            -Verbose:($PSBoundParameters['Verbose'] -eq $true)
-    }
-    catch
-    {
-        throw $_.Exception.Message
-    }
-    $PackerVariables = @{
-        iso_filename      = $macOSImage.ISOPath
-        iso_file_checksum = $macOSImage.ISOSHASum
-    }
-
-
-    # Find out what items we have in our version directory
-    $VersionChildItems = Get-ChildItem $_
-
-    # We need to build any packages that are needed for these builds
-    $PackageDir = $VersionChildItems | Where-Object { $_.Name -eq 'packages' } | Select-Object -ExpandProperty PSPath | Convert-Path
-    if ($PackageDir)
-    {
-        Write-Verbose "Building custom packages"
-        $PackagesToBuild = Get-ChildItem $PackageDir -Recurse -Filter "*.pkgproj" | Select-Object -ExpandProperty PSPath
-        Build-MacOSPackage -PackageProjectPath $PackagesToBuild -OutputDirectory $script:PackerFilesDirectory -Verbose:($PSBoundParameters['Verbose'] -eq $true) | Out-Null
-    }
-
-    # Create the "packer" user by running pycreateuserpkg, we only do this if we've been given a path to the python script
-    if ($PyCreateUserPkgPath)
-    {
-        Write-Verbose "Updating packer_user.pkg"
-        if (!(Test-Path $PyCreateUserPkgPath))
-        {
-            throw "Cannot find pycreateuserpkg at $PyCreateUserPkgPath"
-        }
-        try
-        {
-            Write-Verbose "Building packer_user.pkg"
-            $PackerPackagePath = Join-Path $Global:RepoBuildOutputDirectory 'packer_user.pkg'
-            Start-SilentProcess `
-                -FilePath $PyCreateUserPkgPath `
-                -ArgumentList "-n packer -f packer -p packer -u 525 -V 1 -i com.brownserveuk.packer -a -A -d $PackerPackagePath"
-        }
-        catch
-        {
-            Write-Error "Failed to update packer_user.pkg.`n$($_.Exception.Message)"
-        }
-
-        # Now copy it over to the relevant place
-        try
-        {
-            Write-Verbose "Copying packer_user.pkg to packer directory"
-            Copy-Item $PackerPackagePath -Destination $script:PackerFilesDirectory -Force
-        }
-        catch
-        {
-            Write-Error "Failed to copy packer_user.pkg.`n$($_.Exception.Message)"
-        }
-    }
-
-    # If we've got custom scripts we'll need to copy those over too
-    $ScriptsDir = $VersionChildItems | Where-Object { $_.Name -eq 'scripts' } | Select-Object -ExpandProperty PSPath | Convert-Path
-    if ($ScriptsDir)
-    {
-        Write-Verbose "Copying deployment scripts"
-        Get-ChildItem $ScriptsDir -Recurse | Copy-Item -Destination $script:PackerFilesDirectory
-    }
-
-    # Now we can run the packer build(s)
-    Get-ChildItem $VersionChildItems | Where-Object { $_.Name -match ".hcl|.json" } | Select-Object -ExpandProperty PSPath | ForEach-Object {
-        Invoke-PackerValidate (Convert-Path $_) -WorkingDirectory $BuildOutputDirectory -TemplateVariables $PackerVariables
-        Invoke-PackerBuild (Convert-Path $_) -WorkingDirectory $BuildOutputDirectory -TemplateVariables $PackerVariables
+        Write-Error "Build $($MyInvocation.MyCommand) failed after $BuildTime minutes, error:`n$ErrorMessage"
     }
 }
-
-$BuildTimer.Stop()
-$BuildTime = $BuildTimer.Elapsed.Minutes
-Write-Host "Build $($MyInvocation.MyCommand) completed successfully in $BuildTime minutes! 🎉" -ForegroundColor Green
