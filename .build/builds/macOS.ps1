@@ -34,7 +34,7 @@ try
     . $initScriptPath
 
     # First we need to get the list of macOS versions we currently build for
-    # We do this by getting the child items of os-provisioning/macOS
+    # We do this by getting the child items of os-provisioning/macOS which should correspond to a macOS version (e.g. '11')
     Get-ChildItem (Join-Path $Global:RepoRootDirectory 'macOS') | 
         Where-Object { $_.PSIsContainer } | 
             ForEach-Object {
