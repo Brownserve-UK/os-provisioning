@@ -128,7 +128,7 @@ catch
 # Find and load any custom PowerShell modules we've written for this repo
 try
 {
-    Get-ChildItem $global:RepoCodeDirectory -Filter '*.psm1' -Recurse | Foreach-Object {
+    Get-ChildItem $global:RepoCodeDirectory -Filter '*.psm1' -Recurse | ForEach-Object {
         Import-Module $_ -Force -Verbose:$false
     }
 }
@@ -139,7 +139,15 @@ catch
 
 # Place any custom code below, this will be preserved whenever you update your _init script
 ### Start user defined _init steps
-
+# Import the Invoke-Build module
+try
+{
+    Import-Module (Join-Path $Global:RepoRootDirectory 'packages' 'Invoke-Build', 'tools', 'InvokeBuild.psd1') -Force
+}
+catch
+{
+    throw "Failed to import Invoke-Build module.`n$($_.Exception.Message)"
+}
 ### End user defined _init steps
 
 # If we're not suppressing output then we'll pipe out a list of cmdlets that are now available to the user along with
