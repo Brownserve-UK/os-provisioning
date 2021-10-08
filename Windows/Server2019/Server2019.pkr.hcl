@@ -17,7 +17,7 @@ variable "iso_filename" {
 
 variable "floppy_directory" {
   type        = list(string)
-  default     = ["files/autounattend.xml","files/functions.ps1","files/bootstrap.ps1"]
+  default     = ["files/autounattend.xml", "files/functions.ps1", "files/bootstrap.ps1"]
   description = "The directory to be mounted as a floppy disk"
 }
 
@@ -73,9 +73,16 @@ variable "output_directory" {
   description = "The directory packer should use to output build artifacts"
 }
 
+variable "headless" {
+  type        = bool
+  default     = true
+  description = "If set the VM will boot-up in the background"
+}
+
 source "virtualbox-iso" "server2019-iso" {
   guest_os_type        = "Windows2019_64"
   guest_additions_mode = "disable"
+  headless             = var.headless
   disk_size            = "40000"
   gfx_vram_size        = "128"
   memory               = 4096
