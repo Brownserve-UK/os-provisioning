@@ -65,14 +65,14 @@ task MakeOutputDirectory SetVersionInfo, {
 }
 
 task GetISO {
-    $ISO = Get-ChildItem $ISODirectory -Recurse | 
+    $script:ISO = Get-ChildItem $ISODirectory -Recurse | 
         Where-Object { $_.Name -eq "$WindowsVersion.iso" } | 
             Select-Object -ExpandProperty PSPath |
                 Convert-Path
     $ISOChecksumFile = Get-ChildItem $ISODirectory -Recurse | 
         Where-Object { $_.Name -eq "$WindowsVersion.iso.shasum" } | 
             Select-Object -ExpandProperty PSPath
-    $ISOChecksum = Get-Content $ISOChecksumFile -Raw
+    $script:ISOChecksum = Get-Content $ISOChecksumFile -Raw
 
     if (!$ISO)
     {
@@ -81,10 +81,6 @@ task GetISO {
     if (!$ISOChecksum)
     {
         throw "Failed to find ISO checksum '$WindowsEdition.iso' in $ISODirectory"
-    }
-    $script:PackerVariables = @{
-        iso_filename      = $ISO
-        iso_file_checksum = $ISOChecksum
     }
 }
 
@@ -100,7 +96,17 @@ task CopyFiles MakeOutputDirectory, {
     }
 }
 
-task BuildPackerImages CopyFiles, GetISO, {
+task SetPackerVariables GetISO, {
+    $script:PackerVariables = @{
+        iso_file_checksum = $script:ISOChecksum
+        iso_filename      = $script:ISO
+        winrm_username    = 'Administrator'
+        winrm_password    = 'ItsaSecrettoEverybody1234'
+        headless          = 'true'
+    }
+}
+
+task BuildPackerImages CopyFiles, GetISO, SetPackerVariables, {
     Write-Verbose "Building"
     $PackerBuilds = Get-ChildItem $ConfigurationDirectory | 
         Where-Object { $_.Name -match ".hcl|.json" } | 
