@@ -15,7 +15,7 @@ variable "iso_filename" {
   description = "The Server 2019 ISO to use for this build"
 }
 
-variable "floppy_directory" {
+variable "floppy_files" {
   type        = list(string)
   default     = ["files/autounattend.xml", "files/functions.ps1", "files/bootstrap.ps1"]
   description = "The directory to be mounted as a floppy disk"
@@ -92,7 +92,7 @@ source "virtualbox-iso" "server2019-iso" {
   chipset              = "piix3"
   shutdown_command     = "${var.sysprep_command}"
   communicator         = "winrm"
-  floppy_files         = "${var.floppy_directory}"
+  floppy_files         = "${var.floppy_files}"
   iso_url              = "${var.iso_filename}"
   iso_checksum         = "${var.iso_file_checksum}"
   winrm_port           = var.winrm_port
