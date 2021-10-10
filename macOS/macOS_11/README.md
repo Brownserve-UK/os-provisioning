@@ -15,3 +15,5 @@ This build performs the bare minimum to a macOS ISO to get it up and running wit
 * Gives the `packer` user `sudo` permissions with `NOPASSWD: ALL` set
 * Enables ssh on next boot
 * Marks the installation as complete and skips the initial set-up/out of box experience phase.
+* Installs the X-Code command line tools
+* Installs Homebrew

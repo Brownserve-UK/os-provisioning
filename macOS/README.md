@@ -13,6 +13,8 @@ For details on what specific scripts do check the script file themselves.
 
 ## Scripts directory
 These directories contain any scripts that are used by Packer during the build either as provisioning steps or as files that get mounted via HTTP/floppy disk etc.  
+These scripts get combined with the [common macOS scripts](scripts/) found in this directory during the build process.  
+If you have 2 scripts with the same name then the OS specific script will be used (e.g. if you have `./macOS/scripts/homebrew.sh` and `./macOS/macOS_11/scripts/homebrew.sh` then the `macOS_11` version will be used)
   
 For details on what a specific script does then please check the script file itself.
 
@@ -22,18 +24,7 @@ These files contain all the steps that Packer runs through to perform a build al
 For more information on these check the [Packer documentation](https://www.packer.io/docs/templates)
 
 # Building
-## Prerequisites
-Along with our [general prerequisites] you'll also need:
-* The relevant macOS installer(s) downloaded
-* [pycreateuserpkg](https://github.com/gregneagle/pycreateuserpkg) downloaded and available
+Unfortunately macOS builds can only be built on Apple hardware at present, this is part of Apple's EULA and also our build process requires access to tooling which is only available on macOS software.
 
-## Builds
-To build macOS images you'll need to run the [build script](../.build/builds/macOS.ps1) this one script will take care of building every supported version of macOS.  
-You'll need to provide the path to the `createuserpkg` script we downloaded earlier and you may also wish to enable verbose output to see detailed information on the build
-```powershell
-./.build/builds/macOS.ps1 -PyCreateUserPkgPath ~/downloads/pycreateuserpkg/createuserpkg -Verbose
-```
-
->Note: the build requires sudo permissions during one phase, depending on your settings you may be asked to enter your password during the build.
-  
-Artifacts from the build will be stored in `./.build/output/macOS11`
+## Building macOS ISO's
+The [./.build/builds/macOS_images.ps1](.build/builds/macOS_images.ps1) build assists in building ISO's for supported versions of macOS.
