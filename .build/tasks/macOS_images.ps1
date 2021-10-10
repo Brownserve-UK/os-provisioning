@@ -19,9 +19,10 @@ param
 )
 # Get the version number from the directory name
 $macOSVersion = Split-Path $ConfigurationDirectory -Leaf
+Write-Verbose "MacOS Version: $macOSVersion"
 
 # Set the build output directory
-$script:BuildOutputDirectory = Join-Path $Global:RepoBuildOutputDirectory "macOS_$macOSVersion"
+$script:BuildOutputDirectory = Join-Path $Global:RepoBuildOutputDirectory "$macOSVersion"
 
 # Synopsis: Creates the output directory
 task MakeOutputDirectory {
@@ -68,10 +69,5 @@ task BuildISO MakeOutputDirectory, {
 
     # Build the ISO
     Write-Host "macOS ISO creation requires SUDO permissions.`nDepending on your settings you may now be prompted for your password."
-    $macOSImage = sudo pwsh -Noninteractive -Command $ScriptToRun -Args @($InstallerPath, $script:PackerImagesDirectory) -WorkingDirectory $global:RepoRootDirectory
-
-    $script:PackerVariables = @{
-        iso_filename      = $macOSImage.ISOPath
-        iso_file_checksum = $macOSImage.ISOSHASum
-    }
+    sudo pwsh -Noninteractive -Command $ScriptToRun -Args @($InstallerPath, $script:PackerImagesDirectory) -WorkingDirectory $global:RepoRootDirectory
 }

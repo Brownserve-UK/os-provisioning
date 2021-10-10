@@ -20,9 +20,9 @@ function Get-MacOSInstallerPath
         $macOSVersion
     )
     
-    switch ($macOSVersion)
+    switch -regex ($macOSVersion)
     {
-        '11'
+        '11|macOS_11|macOS11'
         {
             $InstallerPath = '/Applications/Install macOS Big Sur.app'
         }
