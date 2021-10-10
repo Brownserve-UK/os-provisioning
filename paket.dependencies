@@ -1,3 +1,6 @@
 source https://api.nuget.org/v3/index.json
 nuget Brownserve.PSTools
 nuget Invoke-Build
+
+# This is needed so we can build our user package for macOS 11
+github gregneagle/pycreateuserpkg:main
