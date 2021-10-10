@@ -6,16 +6,16 @@ packer {
 variable "iso_file_checksum" {
   type        = string
   default     = "file:images/windows10.iso.shasum"
-  description = "The checksum for the Windows 10 ISO"
+  description = "The checksum for the Server 2019 ISO"
 }
 
 variable "iso_url" {
   type        = string
   default     = "images/windows10.iso"
-  description = "The Windows 10 ISO to use for this build"
+  description = "The Server 2019 ISO to use for this build"
 }
 
-variable "floppy_directory" {
+variable "floppy_files" {
   type        = list(string)
   default     = ["files/autounattend.xml", "files/functions.ps1", "files/bootstrap.ps1"]
   description = "The directory to be mounted as a floppy disk"
@@ -73,6 +73,12 @@ variable "output_directory" {
   description = "The directory packer should use to output build artifacts"
 }
 
+variable "output_filename" {
+  type        = string
+  default     = "Windows10"
+  description = "The name packer should use for the resulting build output"
+}
+
 variable "headless" {
   type        = bool
   default     = true
@@ -80,7 +86,7 @@ variable "headless" {
 }
 
 source "virtualbox-iso" "windows10-iso" {
-  guest_os_type        = "Windows2019_64"
+  guest_os_type        = "Windows10_64"
   guest_additions_mode = "disable"
   headless             = var.headless
   disk_size            = "40000"
@@ -92,7 +98,7 @@ source "virtualbox-iso" "windows10-iso" {
   chipset              = "piix3"
   shutdown_command     = "${var.sysprep_command}"
   communicator         = "winrm"
-  floppy_files         = "${var.floppy_directory}"
+  floppy_files         = "${var.floppy_files}"
   iso_url              = "${var.iso_url}"
   iso_checksum         = "${var.iso_file_checksum}"
   winrm_port           = var.winrm_port
@@ -103,6 +109,7 @@ source "virtualbox-iso" "windows10-iso" {
   winrm_password       = "${var.winrm_password}"
   boot_wait            = var.boot_wait
   output_directory     = var.output_directory
+  output_filename      = var.output_filename
 }
 
 # This builds a very basic image from an ISO

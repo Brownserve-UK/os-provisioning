@@ -27,6 +27,12 @@ variable "output_directory" {
   description = "The directory to use to store the output from this build"
 }
 
+variable "output_filename" {
+  type        = string
+  default     = "macOS11"
+  description = "The name packer should use for the resulting build output"
+}
+
 variable "ssh_password" {
   type    = string
   default = "packer"
@@ -70,9 +76,16 @@ variable "cpus" {
   default = 2
 }
 
+variable "headless" {
+  type        = bool
+  default     = true
+  description = "If set the VM will boot-up in the background"
+}
+
 source "virtualbox-iso" "macos11-iso" {
   guest_os_type        = "MacOS1013_64"
   guest_additions_mode = "disable"
+  headless             = var.headless
   firmware             = "efi"
   disk_size            = "60000"
   gfx_vram_size        = "128"
@@ -99,6 +112,7 @@ source "virtualbox-iso" "macos11-iso" {
   boot_keygroup_interval = var.boot_keygroup_interval_iso
   ssh_timeout            = var.ssh_timeout
   output_directory       = var.output_directory
+  output_filename        = var.output_filename
   boot_command = [
     "<enter><wait10s>",
     "<leftSuperon><f5><leftSuperoff>",

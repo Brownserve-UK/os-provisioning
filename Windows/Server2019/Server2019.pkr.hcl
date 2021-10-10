@@ -73,6 +73,12 @@ variable "output_directory" {
   description = "The directory packer should use to output build artifacts"
 }
 
+variable "output_filename" {
+  type        = string
+  default     = "Server2019"
+  description = "The name packer should use for the resulting build output"
+}
+
 variable "headless" {
   type        = bool
   default     = true
@@ -103,6 +109,7 @@ source "virtualbox-iso" "server2019-iso" {
   winrm_password       = "${var.winrm_password}"
   boot_wait            = var.boot_wait
   output_directory     = var.output_directory
+  output_filename      = var.output_filename
 }
 
 # This builds a very basic image from an ISO
