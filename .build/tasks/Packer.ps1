@@ -67,6 +67,44 @@ task PrepareBuildOutputDirectory SetBuildInformation, {
     Write-Verbose "Build artifacts can be found in $script:BuildOutputDirectory"
 }
 
+task BuildMacOSPackages -If ($OSType -eq 'macOS') PrepareBuildOutputDirectory, {
+    $PackagesDirectory = $script:ConfigSubDirectories | Where-Object { $_.Name -eq 'packages' }
+    try
+    {
+        $PackagesToBuild = Get-ChildItem $PackagesDirectory `
+            -Recurse `
+            -Filter "*.pkgproj" | Select-Object -ExpandProperty PSPath
+    }
+    catch
+    {
+        # Don't error - we probably don't have any packages?
+    }
+    if ($PackagesToBuild)
+    {
+        Build-MacOSPackage `
+            -PackageProjectPath $PackagesToBuild `
+            -OutputDirectory $script:PackerFilesDirectory `
+            -Verbose:($PSBoundParameters['Verbose'] -eq $true) | Out-Null
+    }
+    # Now we need to build our user package for packer to use
+    try
+    {
+        $PyCreateUserPkgPath = Join-Path $global:PaketFilesDirectory 'gregneagle' 'pycreateuserpkg' 'createuserpkg' | Convert-Path
+        # This isn't executable on download :(
+        & chmod +x $PyCreateUserPkgPath
+        Write-Verbose "Building packer_user.pkg"
+        Start-SilentProcess `
+            -FilePath $PyCreateUserPkgPath `
+            -ArgumentList "-n packer -f packer -p packer -u 525 -V 1 -i com.brownserveuk.packer -a -A -d $(Join-Path $script:PackerFilesDirectory 'packer_user.pkg')"
+    }
+    catch
+    {
+        throw "Failed to update packer_user.pkg.`n$($_.Exception.Message)"
+    }
+    # We want these files to end up in the HTTP directory
+    $Script:SetHTTPDirectory = $true
+}
+
 # Synopsis: On Windows we have some funky logic so we set that up here
 task PrepareWindows -If ($OSType -eq 'Windows') PrepareBuildOutputDirectory, {
     # For Windows builds we have a list of autounattends that build our various flavours of Windows
@@ -139,7 +177,7 @@ task SetFloppyFiles -If { $script:SetFloppyFiles -eq $true } CopyScripts, {
     }
 }
 
-task SetHTTPDirectory -If { $Script:SetHTTPDirectory } CopyScripts, {
+task SetHTTPDirectory -If { $Script:SetHTTPDirectory } CopyScripts, BuildMacOSPackages, {
     Write-Verbose "Setting HTTP directory to $script:PackerFilesDirectory"
     if ($script:PackerVariables.http_directory)
     {
@@ -152,38 +190,58 @@ task SetHTTPDirectory -If { $Script:SetHTTPDirectory } CopyScripts, {
 }
 
 # Synopsis: Builds the Packer images
-task BuildPackerImages CopyWindowsFiles, CopyScripts, SetFloppyFiles, {
-    # We have special logic for Windows builds as we build multiple versions of the same ISO.
-    if ($OSType -eq 'Windows')
+task BuildPackerImages CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirectory, BuildMacOSPackages, {
+    switch ($OSType)
     {
-        # Need to do a build for each autounattend
-        $AutoUnattends = Get-ChildItem $script:BuildOutputDirectory -Recurse | 
-            Where-Object { $_.Name -eq 'autounattend.xml' } |
-                Select-Object -ExpandProperty PSPath |
-                    Convert-Path
-
-        foreach ($AutoUnattend in $AutoUnattends)
+        # We have special logic for Windows builds as we build multiple versions of the same ISO.
+        'Windows'
         {
-            $Subversion = Get-Item $AutoUnattend | Select-Object -ExpandProperty PSParentPath | Split-Path -Leaf
-            $PackerOutputDirectory = Join-Path $BuildOutputDirectory $Subversion 'packer'
-            Write-Verbose "Now building $OSVersion-$Subversion"
-            if ($script:PackerVariables.output_directory)
+            # Need to do a build for each autounattend
+            $AutoUnattends = Get-ChildItem $script:BuildOutputDirectory -Recurse | 
+                Where-Object { $_.Name -eq 'autounattend.xml' } |
+                    Select-Object -ExpandProperty PSPath |
+                        Convert-Path
+
+            foreach ($AutoUnattend in $AutoUnattends)
             {
-                $script:PackerVariables.output_directory = $PackerOutputDirectory
+                $Subversion = Get-Item $AutoUnattend | Select-Object -ExpandProperty PSParentPath | Split-Path -Leaf
+                $PackerOutputDirectory = Join-Path $BuildOutputDirectory $Subversion 'packer'
+                Write-Verbose "Now building $OSVersion-$Subversion"
+                if ($script:PackerVariables.output_directory)
+                {
+                    $script:PackerVariables.output_directory = $PackerOutputDirectory
+                }
+                else
+                {
+                    $script:PackerVariables.add('output_directory', $PackerOutputDirectory)
+                }
+                $FloppyString = "[\`"$AutoUnattend\`",\`"$($script:FloppyFiles -join '\",\"')\`"]"
+                if ($script:PackerVariables.floppy_files)
+                {
+                    $script:PackerVariables.floppy_files = $FloppyString
+                }
+                else
+                {
+                    $script:PackerVariables.add('floppy_files', $FloppyString)
+                }
+                $script:PackerConfigs | ForEach-Object {
+                    # First validate
+                    Invoke-PackerValidate `
+                        -PackerTemplate $_ `
+                        -WorkingDirectory $script:BuildOutputDirectory `
+                        -TemplateVariables $script:PackerVariables `
+                        -Verbose
+                    # Then build
+                    Invoke-PackerBuild `
+                        -PackerTemplate $_ `
+                        -WorkingDirectory $script:BuildOutputDirectory `
+                        -TemplateVariables $script:PackerVariables `
+                        -Verbose
+                }
             }
-            else
-            {
-                $script:PackerVariables.add('output_directory', $PackerOutputDirectory)
-            }
-            $FloppyString = "[\`"$AutoUnattend\`",\`"$($script:FloppyFiles -join '\",\"')\`"]"
-            if ($script:PackerVariables.floppy_files)
-            {
-                $script:PackerVariables.floppy_files = $FloppyString
-            }
-            else
-            {
-                $script:PackerVariables.add('floppy_files', $FloppyString)
-            }
+        }
+        Default
+        {
             $script:PackerConfigs | ForEach-Object {
                 # First validate
                 Invoke-PackerValidate `
