@@ -41,7 +41,7 @@ param
 
 # Create an empty packer variables hash
 $script:PackerVariables = @{
-    iso_url      = $ISOPath
+    iso_url           = $ISOPath
     iso_file_checksum = $ISOChecksum
 }
 $script:FloppyFiles = @()
@@ -207,6 +207,7 @@ task BuildPackerImages CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDir
                 $Subversion = Get-Item $AutoUnattend | Select-Object -ExpandProperty PSParentPath | Split-Path -Leaf
                 $PackerOutputDirectory = Join-Path $BuildOutputDirectory $Subversion 'packer'
                 Write-Verbose "Now building $OSVersion-$Subversion"
+                # Set the output directory
                 if ($script:PackerVariables.output_directory)
                 {
                     $script:PackerVariables.output_directory = $PackerOutputDirectory
@@ -214,6 +215,16 @@ task BuildPackerImages CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDir
                 else
                 {
                     $script:PackerVariables.add('output_directory', $PackerOutputDirectory)
+                }
+                # Set the output filename
+                $PackerOutputFilename = "$OSVersion-$Subversion"
+                if ($script:PackerVariables.output_filename)
+                {
+                    $script:PackerVariables.output_filename = $PackerOutputFilename
+                }
+                else
+                {
+                    $script:PackerVariables.add('output_filename', $PackerOutputFilename)
                 }
                 $FloppyString = "[\`"$AutoUnattend\`",\`"$($script:FloppyFiles -join '\",\"')\`"]"
                 if ($script:PackerVariables.floppy_files)
@@ -242,6 +253,27 @@ task BuildPackerImages CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDir
         }
         Default
         {
+            Write-Verbose "Now building $OSVersion"
+            # Set the output build directory
+            $PackerOutputDirectory = Join-Path $BuildOutputDirectory 'packer'
+            if ($script:PackerVariables.output_directory)
+            {
+                $script:PackerVariables.output_directory = $PackerOutputDirectory
+            }
+            else
+            {
+                $script:PackerVariables.add('output_directory', $PackerOutputDirectory)
+            }
+            # Set the output filename
+            $PackerOutputFilename = $OSVersion
+            if ($script:PackerVariables.output_filename)
+            {
+                $script:PackerVariables.output_filename = $PackerOutputFilename
+            }
+            else
+            {
+                $script:PackerVariables.add('output_filename', $PackerOutputFilename)
+            }
             $script:PackerConfigs | ForEach-Object {
                 # First validate
                 Invoke-PackerValidate `
