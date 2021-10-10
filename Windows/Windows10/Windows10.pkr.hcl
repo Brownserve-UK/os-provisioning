@@ -45,13 +45,13 @@ variable "winrm_timeout" {
 
 variable "winrm_username" {
   type        = string
-  default     = "packer"
+  default     = "Administrator"
   description = "The username to use to connect to WinRM"
 }
 
 variable "winrm_password" {
   type        = string
-  default     = "packer"
+  default     = "ItsaSecrettoEverybody1234"
   description = "The password to use to connect to WinRM"
 }
 
