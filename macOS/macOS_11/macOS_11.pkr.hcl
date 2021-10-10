@@ -40,7 +40,7 @@ variable "ssh_username" {
 # Depending on the host system speed it can be a while before SSH is ready
 variable "ssh_timeout" {
   type    = string
-  default = "60m"
+  default = "70m"
 }
 
 # Again depending on the host system it can take a while before the VM first boots...
@@ -60,14 +60,24 @@ variable "boot_keygroup_interval_iso" {
   default = "2s"
 }
 
-source "virtualbox-iso" "macos11-vanilla" {
+variable "memory" {
+  type = number
+  default = 6144
+}
+
+variable "cpus" {
+  type = number
+  default = 2
+}
+
+source "virtualbox-iso" "macos11-iso" {
   guest_os_type        = "MacOS1013_64"
   guest_additions_mode = "disable"
   firmware             = "efi"
   disk_size            = "60000"
   gfx_vram_size        = "128"
-  memory               = 4096
-  cpus                 = 2
+  memory               = var.memory
+  cpus                 = var.cpus
   hard_drive_interface = "sata" # pcie would be better but: https://github.com/hashicorp/packer-plugin-virtualbox/issues/10
   iso_interface        = "sata"
   audio_controller     = "hda"
@@ -111,5 +121,12 @@ source "virtualbox-iso" "macos11-vanilla" {
 # This builds a very basic image from a vanilla ISO
 build {
   name    = "basic"
-  sources = ["sources.virtualbox-iso.macos11-vanilla"]
+  sources = ["sources.virtualbox-iso.macos11-iso"]
+
+  provisioner "shell" {
+    scripts = [
+      "./files/xcode_clt.sh",
+      "./files/homebrew.sh",
+    ]
+  }
 }
