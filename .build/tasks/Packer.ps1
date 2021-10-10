@@ -41,7 +41,7 @@ param
 
 # Create an empty packer variables hash
 $script:PackerVariables = @{
-    iso_filename      = $ISOPath
+    iso_url      = $ISOPath
     iso_file_checksum = $ISOChecksum
 }
 $script:FloppyFiles = @()

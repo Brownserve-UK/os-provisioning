@@ -9,7 +9,7 @@ variable "iso_file_checksum" {
   description = "The checksum for the Windows 10 ISO"
 }
 
-variable "iso_filename" {
+variable "iso_url" {
   type        = string
   default     = "images/windows10.iso"
   description = "The Windows 10 ISO to use for this build"
@@ -93,7 +93,7 @@ source "virtualbox-iso" "windows10-iso" {
   shutdown_command     = "${var.sysprep_command}"
   communicator         = "winrm"
   floppy_files         = "${var.floppy_directory}"
-  iso_url              = "${var.iso_filename}"
+  iso_url              = "${var.iso_url}"
   iso_checksum         = "${var.iso_file_checksum}"
   winrm_port           = var.winrm_port
   winrm_use_ssl        = var.winrm_use_ssl

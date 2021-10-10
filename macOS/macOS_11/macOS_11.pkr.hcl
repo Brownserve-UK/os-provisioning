@@ -9,7 +9,7 @@ variable "iso_file_checksum" {
   description = "The checksum for the macOS ISO"
 }
 
-variable "iso_filename" {
+variable "iso_url" {
   type    = string
   default = "images/macOS_11.iso"
   description = "The macOS ISO to use for this build"
@@ -91,7 +91,7 @@ source "virtualbox-iso" "macos11-iso" {
     ["storagectl", "{{.Name}}", "--name", "IDE Controller", "--remove"],
   ]
   http_directory         = "${var.http_directory}"
-  iso_url                = "${var.iso_filename}"
+  iso_url                = "${var.iso_url}"
   iso_checksum           = "${var.iso_file_checksum}"
   ssh_username           = "${var.ssh_username}"
   ssh_password           = "${var.ssh_password}"
