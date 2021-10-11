@@ -1,0 +1,22 @@
+#cloud-config
+autoinstall:
+  version: 1
+  early-commands:
+    - systemctl stop ssh
+  identity:
+    hostname: ubuntu2004
+    username: packer
+    password: $6$cWG3kysF74$L4Kvshk5ysbBKq4PJKMEaRHebAB5gjSiClTbEkt.FxyaIHXQrda0.Em4gAZ5tDaI1KIevQyMlECKnuYIUT9OK0
+  ssh:
+    allow-pw: true
+    install-server: true
+  locale: en_GB
+  keyboard: 
+    layout: gb
+  storage:
+    layout:
+      name: lvm
+  late-commands:
+    - "echo 'Defaults:packer !requiretty' > /target/etc/sudoers.d/packer"
+    - "echo 'packer ALL=(ALL) NOPASSWD: ALL' >> /target/etc/sudoers.d/packer"
+    - "chmod 440 /target/etc/sudoers.d/packer"

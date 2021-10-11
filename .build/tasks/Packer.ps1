@@ -141,6 +141,17 @@ task CopyWindowsFiles -If ($OSType -eq 'Windows') PrepareWindows, {
     }
 }
 
+# Synopsis: Copies the files needed for running Linux builds over
+task CopyLinuxFiles -If ($OSType -eq 'Linux') PrepareBuildOutputDirectory, {
+    # Copy the autoinstall stuff over
+    $script:AutoInstallDirectory = Copy-Item (Join-Path $BuildConfigurationPath 'autoinstall') `
+        -Destination $script:PackerFilesDirectory `
+        -Recurse
+
+    # We need to pass our autoinstall stuff through as a HTTP dir:
+    $Script:SetHTTPDirectory = $true
+}
+
 # Synopsis: Copies any scripts over to the 'files' directory so they are available to provisioners/floppy drives
 task CopyScripts PrepareBuildOutputDirectory, {
     # If we've got common scripts then copy them over here
@@ -177,7 +188,7 @@ task SetFloppyFiles -If { $script:SetFloppyFiles -eq $true } CopyScripts, {
     }
 }
 
-task SetHTTPDirectory -If { $Script:SetHTTPDirectory } CopyScripts, BuildMacOSPackages, {
+task SetHTTPDirectory -If { $Script:SetHTTPDirectory } CopyScripts, BuildMacOSPackages, CopyLinuxFiles, {
     Write-Verbose "Setting HTTP directory to $script:PackerFilesDirectory"
     if ($script:PackerVariables.http_directory)
     {
@@ -190,7 +201,7 @@ task SetHTTPDirectory -If { $Script:SetHTTPDirectory } CopyScripts, BuildMacOSPa
 }
 
 # Synopsis: Builds the Packer images
-task BuildPackerImages CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirectory, BuildMacOSPackages, {
+task BuildPackerImages CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirectory, BuildMacOSPackages, CopyLinuxFiles, {
     switch ($OSType)
     {
         # We have special logic for Windows builds as we build multiple versions of the same ISO.
