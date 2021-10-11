@@ -110,7 +110,7 @@ source "virtualbox-iso" "ubuntu2004-iso" {
   boot_command = [
     "<esc><wait>",
     "<esc><wait>",
-    "linux /casper/vmlinuz --- autoinstall ds=\"nocloud-net;seedfrom=http://{{.HTTPIP}}:{{.HTTPPort}}/autoinstall/\"<enter><wait>",
+    "linux /casper/vmlinuz --- autoinstall ds=\"nocloud-net;seedfrom=http://{{.HTTPIP}}:{{.HTTPPort}}/bootstrap/\"<enter><wait>",
     "initrd /casper/initrd<enter><wait>",
     "boot<enter>"
   ]

@@ -143,12 +143,12 @@ task CopyWindowsFiles -If ($OSType -eq 'Windows') PrepareWindows, {
 
 # Synopsis: Copies the files needed for running Linux builds over
 task CopyLinuxFiles -If ($OSType -eq 'Linux') PrepareBuildOutputDirectory, {
-    # Copy the autoinstall stuff over
-    $script:AutoInstallDirectory = Copy-Item (Join-Path $BuildConfigurationPath 'autoinstall') `
+    # Copy the bootstrap stuff over
+    $script:BootstrapDirectory = Copy-Item (Join-Path $BuildConfigurationPath 'bootstrap') `
         -Destination $script:PackerFilesDirectory `
         -Recurse
 
-    # We need to pass our autoinstall stuff through as a HTTP dir:
+    # We need to pass our bootstrap stuff through as a HTTP dir:
     $Script:SetHTTPDirectory = $true
 }
 
