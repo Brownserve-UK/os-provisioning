@@ -4,6 +4,7 @@
 .DESCRIPTION
     Simple cmdlet for checking and returning the path to macOS installers
     This ensures we can easily get the path to the installer across versions
+    [Compatible with: macOS]
 .EXAMPLE
     Get-MacOSInstallerPath -macOSVersion '11'
     
@@ -19,7 +20,10 @@ function Get-MacOSInstallerPath
         [string]
         $macOSVersion
     )
-    
+    if (!$IsMacOS)
+    {
+        throw "This cmdlet can only be used on macOS"
+    }
     switch -regex ($macOSVersion)
     {
         '11|macOS_11|macOS11'

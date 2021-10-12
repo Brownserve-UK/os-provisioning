@@ -48,6 +48,10 @@ function Build-MacOSImage
     
     begin
     {
+        if (!$IsMacOS)
+        {
+            throw "This cmdlet can only be used on macOS"
+        }
         # Set some default variables
         $MinimumSupportedVersion = [version]'10.2'
         $MaximumSupportedVersion = [version]'11.999.999'

@@ -3,6 +3,7 @@
     Builds macOS packages using the "packages" application
 .DESCRIPTION
     Builds macOS packages using the "packages" application
+    [Compatible with: macOS]
 .EXAMPLE
     PS C:\> Build-MacOSPackages -PackageProjectPath './packages/package.pkgproj' -OutputDirectory './builds'
     Would build the package.pkgproj file and output it into 'builds'
@@ -34,6 +35,10 @@ function Build-MacOSPackage
     
     begin
     {
+        if (!$IsMacOS)
+        {
+            throw "This cmdlet can only be used on macOS"
+        }
         try
         {
             $AbsoluteOutputPath = Get-Item $OutputDirectory -Force | Convert-Path
