@@ -18,7 +18,7 @@
 .NOTES
     For URL's we are expecting an IIS file directory site like we have set-up on our internal WebFiles01 machine.
 #>
-function Get-ISOs
+function Get-ISOInformation
 {
     [CmdletBinding()]
     param
