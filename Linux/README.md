@@ -4,7 +4,7 @@ Within this directory you will find all the configurations for the flavours of L
 # Directory structure
 Within each configuration directory you'll find various files/folders, below you'll find an overview of what each of these does.
 
-## Autoinstall directory
+## Bootstrap directory
 This directory contains the various flavours of auto-install configurations that Linux distro's can use (e.g preseed, autoinstall, kickstart etc).
 
 ## Scripts directory

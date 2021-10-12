@@ -1,0 +1,13 @@
+network:
+  version: 2
+  ethernets:
+    enp:
+      match: 
+        name: enp*
+      dhcp4: yes
+      dhcp-identifier: mac
+    eth:
+      match: 
+        name: eth*
+      dhcp4: yes
+      dhcp-identifier: mac
