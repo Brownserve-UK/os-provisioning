@@ -17,6 +17,7 @@ For more information on a given build/tasks check out the relevant script file.
 ## Prerequisites
 Before being able to run any of the builds in the builds directory, you'll need the following:
 * PowerShell Core available and on your path
+* Dotnet installed and available on your path
 * NuGet installed and available on your path
 * The relevant virtualisation host (currently we only use VirtualBox but this may change in the future)
 * The VirtualBox [extension pack](https://www.virtualbox.org/wiki/Downloads) (about halfway down the page)
