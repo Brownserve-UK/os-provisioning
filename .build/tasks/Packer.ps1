@@ -36,7 +36,12 @@ param
     # Whether or not to copy the ISO locally when building
     [Parameter(Mandatory = $false)]
     [bool]
-    $CopyISO = $false
+    $CopyISO = $false,
+
+    # An optional path to copy the completed builds artifacts to
+    [Parameter(Mandatory = $false)]
+    [string]
+    $BuildArtifactPath
 )
 
 # Create an empty packer variables hash
@@ -47,6 +52,15 @@ $script:PackerVariables = @{
 $script:FloppyFiles = @()
 $Script:SetHTTPDirectory = $false
 $Script:SetFloppyFiles = $false
+
+# Synopsis: checks that our build artifact path is valid
+task CheckBuildArtifactPath -If ($BuildArtifactPath) {
+    Write-Verbose "Checking BuildArtifactPath is valid"
+    if (!(Test-Path $BuildArtifactPath))
+    {
+        throw "'$BuildArtifactPath' does not appear to be a valid directory"
+    }
+}
 
 # Synopsis: sets some basic build information applicable to everything
 task SetBuildInformation {
@@ -65,6 +79,45 @@ task PrepareBuildOutputDirectory SetBuildInformation, {
     New-Item $script:BuildOutputDirectory -ItemType Directory -Force | Out-Null
     $script:PackerFilesDirectory = New-Item (Join-Path $script:BuildOutputDirectory 'files') -ItemType Directory -Force
     Write-Verbose "Build artifacts can be found in $script:BuildOutputDirectory"
+
+    # Create a directory for packer to store the builds in but DO NOT create it, packer takes care of this and gets
+    # mad if you try to do it yourself
+    $script:PackerOutputDirectory = Join-Path $BuildOutputDirectory 'packer'
+    # Set the output_directory packer variable
+    if ($script:PackerVariables.output_directory)
+    {
+        $script:PackerVariables.output_directory = $PackerOutputDirectory
+    }
+    else
+    {
+        $script:PackerVariables.add('output_directory', $PackerOutputDirectory)
+    }
+
+    # Set the default output filename
+    $PackerOutputFilename = $OSVersion
+    if ($script:PackerVariables.output_filename)
+    {
+        $script:PackerVariables.output_filename = $PackerOutputFilename
+    }
+    else
+    {
+        $script:PackerVariables.add('output_filename', $PackerOutputFilename)
+    }
+}
+
+task CopyISO -If ($CopyISO) PrepareBuildOutputDirectory, {
+    # Create a directory for storing the image
+    $script:ImagesDirectory = New-Item (Join-Path $script:BuildOutputDirectory 'images') -ItemType Directory -Force | Convert-Path
+    # Copy the ISO and change the value of iso_url
+    $NewISOPath = Copy-ISO -ISOPath $ISOPath -Destination $script:ImagesDirectory | Convert-Path
+    if ($script:PackerVariables.iso_url)
+    {
+        $script:PackerVariables.iso_url = $NewISOPath
+    }
+    else
+    {
+        $script:PackerVariables.add('iso_url', $NewISOPath)
+    }
 }
 
 task BuildMacOSPackages -If ($OSType -eq 'macOS') PrepareBuildOutputDirectory, {
@@ -201,7 +254,7 @@ task SetHTTPDirectory -If { $Script:SetHTTPDirectory } CopyScripts, BuildMacOSPa
 }
 
 # Synopsis: Builds the Packer images
-task BuildPackerImages CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirectory, BuildMacOSPackages, CopyLinuxFiles, {
+task InvokePacker CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirectory, BuildMacOSPackages, CopyLinuxFiles, CopyISO, {
     switch ($OSType)
     {
         # We have special logic for Windows builds as we build multiple versions of the same ISO.
@@ -216,18 +269,10 @@ task BuildPackerImages CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDir
             foreach ($AutoUnattend in $AutoUnattends)
             {
                 $Subversion = Get-Item $AutoUnattend | Select-Object -ExpandProperty PSParentPath | Split-Path -Leaf
-                $PackerOutputDirectory = Join-Path $BuildOutputDirectory $Subversion 'packer'
+                
                 Write-Verbose "Now building $OSVersion-$Subversion"
-                # Set the output directory
-                if ($script:PackerVariables.output_directory)
-                {
-                    $script:PackerVariables.output_directory = $PackerOutputDirectory
-                }
-                else
-                {
-                    $script:PackerVariables.add('output_directory', $PackerOutputDirectory)
-                }
-                # Set the output filename
+                
+                # Override the default Packer filename
                 $PackerOutputFilename = "$OSVersion-$Subversion"
                 if ($script:PackerVariables.output_filename)
                 {
@@ -265,26 +310,6 @@ task BuildPackerImages CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDir
         Default
         {
             Write-Verbose "Now building $OSVersion"
-            # Set the output build directory
-            $PackerOutputDirectory = Join-Path $BuildOutputDirectory 'packer'
-            if ($script:PackerVariables.output_directory)
-            {
-                $script:PackerVariables.output_directory = $PackerOutputDirectory
-            }
-            else
-            {
-                $script:PackerVariables.add('output_directory', $PackerOutputDirectory)
-            }
-            # Set the output filename
-            $PackerOutputFilename = $OSVersion
-            if ($script:PackerVariables.output_filename)
-            {
-                $script:PackerVariables.output_filename = $PackerOutputFilename
-            }
-            else
-            {
-                $script:PackerVariables.add('output_filename', $PackerOutputFilename)
-            }
             $script:PackerConfigs | ForEach-Object {
                 # First validate
                 Invoke-PackerValidate `
@@ -302,3 +327,12 @@ task BuildPackerImages CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDir
         }
     }
 }
+
+task CopyBuildArtifacts -If ($CopyBuildArtifactsTo) InvokePacker, {
+    Write-Verbose "Copying build artifacts to $BuildArtifactPath"
+    Get-ChildItem $script:PackerOutputDirectory -Recurse | 
+        Copy-Item -Destination $BuildArtifactPath -Force
+}
+
+# Synopsis: Wrapper task for all the others
+task BuildPackerImages InvokePacker, CopyBuildArtifacts, {}

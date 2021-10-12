@@ -1,9 +1,16 @@
 <#
 .SYNOPSIS
     Builds all of our Packer images
+.DESCRIPTION
+    This build acts as a wrapper for our Packer build pipelines.
+    It will take ISO's from a given directory or URL and build any that have a matching configuration in this
+    repository.
 .NOTES
-    N/A
+    - ISO names *must* match their build configurations (e.g. 'macOS_11.iso', 'server2019.iso' etc)
+    - When your ISO's are on slow storage (e.g. URL's/fileshare's) set the 'CopyISO' switch to have them copied locally
+    - Use the "IncludedOperatingSystems" and "ExcludedOperatingSystems" to limit builds to just those you want 
 #>
+#Requires -Version 6.0
 [CmdletBinding()]
 param
 (
@@ -14,8 +21,25 @@ param
 
     # Setting this parameter limits builds to only those specified
     [Parameter(Mandatory = $false, Position = 1)]
+    [Alias('Include')]
     [array]
-    $OperatingSystemsToBuild
+    $IncludedOperatingSystems,
+
+    # Any operating systems specified here will be ignored
+    [Parameter(Mandatory = $false, Position = 2)]
+    [Alias('Exclude')]
+    [array]
+    $ExcludedOperatingSystems,
+
+    # If specified the completed packer build artifacts are copied to the given directory
+    [Parameter(Mandatory = $false, Position = 3)]
+    [string]
+    $CopyBuildArtifactsTo,
+
+    # If set will copy the ISO's to the local build output directory, handy if your ISO's are on slow storage
+    [Parameter(Mandatory = $false)]
+    [switch]
+    $CopyISO
 )
 # Always stop on errors
 $ErrorActionPreference = 'Stop'
@@ -47,7 +71,7 @@ catch
 # We start off by getting a list of ISO's we are building for
 try
 {
-    $ISOs = Get-ISOs -ISOPath $ISOPath
+    $ISOs = Get-ISOInformation -ISOPath $ISOPath
 }
 catch
 {
@@ -75,14 +99,24 @@ foreach ($ISO in $ISOs)
     # Work out the name of the OS
     $OSName = ($ISO.ISOPath | Split-Path -Leaf) -replace '.iso', ''
     Write-Verbose "OSName: $OSName"
-    if ($OperatingSystemsToBuild)
+    # Include/Exclude configurations
+    if ($IncludedOperatingSystems)
     {
-        if ($OSName -notin $OperatingSystemsToBuild)
+        if ($OSName -notin $IncludedOperatingSystems)
         {
             Write-Verbose "$OSName will be skipped"
             Continue
         }
     }
+    if ($ExcludedOperatingSystems)
+    {
+        if ($OSName -in $ExcludedOperatingSystems)
+        {
+            Write-Verbose "$OSName will be skipped"
+            Continue
+        }
+    }
+    # Only run builds where an ISO name matches a build config name
     if ($OSName -in $BuildConfigs.Name)
     {
         # Do a build
@@ -90,10 +124,11 @@ foreach ($ISO in $ISOs)
         {
             if (($OSName -eq 'macOS') -and (!$IsMacOS))
             {
+                # Don't fail just skip over it
                 Write-Warning "macOS can only be built on Apple hardware, skipping"
                 Continue
             }
-            # Work out what OS type we have by seeing what parent folder it's in (e.g. macOS).
+            # Work out what OS type we have by seeing what parent folder it's in (e.g. macOS/Linux/Windows).
             $OSType = $BuildConfigs | 
                 Where-Object { $_.Name -eq $OSName } | 
                     Select-Object -ExpandProperty PSParentPath | 
@@ -113,6 +148,10 @@ foreach ($ISO in $ISOs)
             if ($CopyISO)
             {
                 $IBParams.Add('CopyISO', $true)
+            }
+            if ($CopyBuildArtifactsTo)
+            {
+                $IBParams.Add('BuildArtifactPath', $CopyBuildArtifactsTo)
             }
             Invoke-Build @IBParams -Verbose:($PSBoundParameters['Verbose'] -eq $true)
                 
