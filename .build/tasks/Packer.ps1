@@ -271,6 +271,19 @@ task InvokePacker CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirector
                 $Subversion = Get-Item $AutoUnattend | Select-Object -ExpandProperty PSParentPath | Split-Path -Leaf
                 
                 Write-Verbose "Now building $OSVersion-$Subversion"
+
+                # Override the default output directory, we need to do this otherwise packer throws a wobbly cos
+                # there's files in the output directory -_-
+                $SubversionOutputDirectory = Join-Path $BuildOutputDirectory $Subversion 'packer'
+                # Set the output_directory packer variable
+                if ($script:PackerVariables.output_directory)
+                {
+                    $script:PackerVariables.output_directory = $SubversionOutputDirectory
+                }
+                else
+                {
+                    $script:PackerVariables.add('output_directory', $SubversionOutputDirectory)
+                }
                 
                 # Override the default Packer filename
                 $PackerOutputFilename = "$OSVersion-$Subversion"
@@ -305,6 +318,9 @@ task InvokePacker CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirector
                         -TemplateVariables $script:PackerVariables `
                         -Verbose
                 }
+                # Now we need to move the built subversions into the packer output directory so everything can end up in
+                # one place
+                Get-ChildItem $SubversionOutputDirectory -Recurse | Move-Item -Destination $global:CompletedPackerBuildsDirectory -Force
             }
         }
         Default
@@ -324,13 +340,15 @@ task InvokePacker CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirector
                     -TemplateVariables $script:PackerVariables `
                     -Verbose
             }
+            # Move the completed builds so they are easy to find!
+            Get-ChildItem $script:PackerOutputDirectory -Recurse | Move-Item -Destination $global:CompletedPackerBuildsDirectory -Force
         }
     }
 }
 
 task CopyBuildArtifacts -If ($CopyBuildArtifactsTo) InvokePacker, {
     Write-Verbose "Copying build artifacts to $BuildArtifactPath"
-    Get-ChildItem $script:PackerOutputDirectory -Recurse | 
+    Get-ChildItem $global:CompletedPackerBuildsDirectory -Recurse | 
         Copy-Item -Destination $BuildArtifactPath -Force
 }
 

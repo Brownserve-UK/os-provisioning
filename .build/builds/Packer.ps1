@@ -94,6 +94,18 @@ catch
     throw "Failed to get build configurations.`n$($_.Exception.Message)"
 }
 
+# Create the directory where all finished Packer builds end up
+try
+{
+    $global:CompletedPackerBuildsDirectory = New-Item (Join-Path $Global:RepoBuildOutputDirectory 'complete') `
+        -ItemType Directory `
+        -Force
+}
+catch
+{
+    throw $_.Exception.Message
+}
+
 foreach ($ISO in $ISOs)
 {
     # Work out the name of the OS
@@ -168,3 +180,4 @@ foreach ($ISO in $ISOs)
 }
 
 Write-Host "Build $($MyInvocation.MyCommand) completed successfully! 🎉" -ForegroundColor Green
+Write-Host "You can find your Packer images in:`n$($Global:CompletedPackerBuildsDirectory | Convert-Path)"
