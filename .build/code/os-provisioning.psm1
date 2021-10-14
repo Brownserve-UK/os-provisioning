@@ -14,8 +14,13 @@ $PublicCmdlets = @()
 $CompatibleCmdlets = @()
 $IncompatibleCmdlets = @()
 
-
 # Dot source our private functions so they are available for our public functions to use
+Join-Path $PSScriptRoot -ChildPath 'Private' |
+    Resolve-Path |
+        Get-ChildItem -Filter *.ps1 -Recurse |
+            ForEach-Object {
+                . $_.FullName
+            }
 
 # Dot source our public functions and then add their help information to an array
 Join-Path $PSScriptRoot -ChildPath 'Public' |
