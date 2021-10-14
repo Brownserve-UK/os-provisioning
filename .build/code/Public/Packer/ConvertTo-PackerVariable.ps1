@@ -4,55 +4,82 @@
 #>
 function ConvertTo-PackerVariable
 {
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'default')]
     param
     (
         # The name of the packer variable to set
-        [Parameter(Mandatory = $true)]
+        [Parameter(
+            Mandatory = $true,
+            ParameterSetName = 'default',
+            Position = 0
+        )]
         [string]
         $VariableName,
 
         # The variable to be converted
-        [Parameter(Mandatory = $true)]
-        $VariableValue
+        [Parameter(
+            Mandatory = $true,
+            ParameterSetName = 'default',
+            Position = 1
+        )]
+        $VariableValue,
+
+        # Secret parameter for piping in lots of values
+        [Parameter(
+            DontShow,
+            ValueFromPipeline,
+            ParameterSetName = 'pipeline'
+        )]
+        [hashtable]
+        $PackerVariables
     )
     
     begin
     {
-        
+        $Return = @()
     }
     
     process
     {
-        $VariableType = $VariableValue.GetType()
-        switch ($VariableType.BaseType)
+        if (!$PackerVariables)
         {
-            'array'
-            {
-                Write-Verbose "Converting variable"
-                # Variables need to be in the format of ["value1","value2"]
-                $ConvertedValue = "[`"$($VariableValue -split '","')`"]"
+            $PackerVariables = @{
+                $VariableName = $VariableValue
             }
-            'string'
+        }
+        foreach ($PackerVariable in $PackerVariables.GetEnumerator())
+        {
+            $VariableType = $PackerVariable.Value.GetType()
+            switch ($VariableType.Name)
             {
-                Write-Verbose "$VariableName is a string"
-                $ConvertedValue = "`"$VariableValue`""
+                'Object[]'
+                {
+                    Write-Verbose "$($PackerVariable.key) is an array"
+                    # Variables need to be in the format of ["value1","value2"]
+                    $ConvertedValue = "[`"$($PackerVariable.Value -join '","')`"]"
+                }
+                'string'
+                {
+                    Write-Verbose "$($PackerVariable.key) is a string"
+                    $ConvertedValue = "`"$($PackerVariable.Value)`""
+                }
+                Default
+                {
+                    Write-Error "Unhandled variable type '$($VariableType.BaseType)'"
+                }
             }
-            Default
-            {
-                Write-Error "Unhandled variable type '$($VariableType.BaseType)'"
+            $Return += [PackerVariable]@{
+                VariableName  = $PackerVariable.Key
+                VariableValue = $ConvertedValue
             }
         }
     }
     
     end
     {
-        if ($ConvertedValue)
+        if ($Return)
         {
-            Return [PackerVariable]@{
-                VariableName  = $VariableName
-                VariableValue = $ConvertedValue
-            }
+            Return $Return
         }
         else
         {

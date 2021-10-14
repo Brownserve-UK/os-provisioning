@@ -12,13 +12,17 @@ function New-PackerVarsFile
     (
         # The path to the vars file to create
         [Parameter(
-            Mandatory = $true
+            Mandatory = $true,
+            Position = 0
         )]
         [string]
         $Path,
 
         # The values to be set
-        [Parameter(Mandatory = $true)]
+        [Parameter(
+            Mandatory = $true,
+            Position = 1
+        )]
         [PackerVariable[]]
         $PackerVariables,
 
@@ -52,16 +56,19 @@ function New-PackerVarsFile
         }
         try
         {
-           New-Item @NewItemParams
+            $VarsFile = New-Item @NewItemParams
         }
         catch
         {
-           throw "Failed to create packer variable file at $Path.`n$($_.Exception.Message)"
+            throw "Failed to create packer variable file at $Path.`n$($_.Exception.Message)"
         }
     }
     
     end
     {
-        
+        if ($VarsFile)
+        {
+            Return $VarsFile
+        }
     }
 }
