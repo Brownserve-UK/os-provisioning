@@ -53,6 +53,7 @@ $script:FloppyFiles = @()
 $Script:SetHTTPDirectory = $false
 $Script:SetFloppyFiles = $false
 
+
 # Synopsis: checks that our build artifact path is valid
 task CheckBuildArtifactPath -If ($BuildArtifactPath) {
     Write-Verbose "Checking BuildArtifactPath is valid"
@@ -84,31 +85,18 @@ task PrepareBuildOutputDirectory SetBuildInformation, {
     # mad if you try to do it yourself
     $script:PackerOutputDirectory = Join-Path $BuildOutputDirectory 'packer'
     # Set the output_directory packer variable
-    if ($script:PackerVariables.output_directory)
-    {
-        $script:PackerVariables.output_directory = $PackerOutputDirectory
-    }
-    else
-    {
-        $script:PackerVariables.add('output_directory', $PackerOutputDirectory)
-    }
+    $script:PackerVariables.add('output_directory', $PackerOutputDirectory)
 
     # Set the default output filename
     $PackerOutputFilename = $OSVersion
-    if ($script:PackerVariables.output_filename)
-    {
-        $script:PackerVariables.output_filename = $PackerOutputFilename
-    }
-    else
-    {
-        $script:PackerVariables.add('output_filename', $PackerOutputFilename)
-    }
+    $script:PackerVariables.add('output_filename', $PackerOutputFilename)
 }
 
+# Synopsis: Copies the ISO to the build output directory if requested
 task CopyISO -If ($CopyISO) PrepareBuildOutputDirectory, {
     # Create a directory for storing the image
     $script:ImagesDirectory = New-Item (Join-Path $script:BuildOutputDirectory 'images') -ItemType Directory -Force | Convert-Path
-    # Copy the ISO and change the value of iso_url
+    # Copy the ISO and change the value of the iso_url Packer variable
     $NewISOPath = Copy-ISO -ISOPath $ISOPath -Destination $script:ImagesDirectory | Convert-Path
     if ($script:PackerVariables.iso_url)
     {
@@ -120,6 +108,7 @@ task CopyISO -If ($CopyISO) PrepareBuildOutputDirectory, {
     }
 }
 
+# Synopsis: Builds the macOS packages
 task BuildMacOSPackages -If ($OSType -eq 'macOS') PrepareBuildOutputDirectory, {
     $PackagesDirectory = $script:ConfigSubDirectories | Where-Object { $_.Name -eq 'packages' }
     try
@@ -221,36 +210,21 @@ task CopyScripts PrepareBuildOutputDirectory, {
     }
 }
 
-# Synopsis: This will create a floppy drive with the contents of the 'files' directory
+# Synopsis: This will create a floppy drive with the contents of the 'files' directory if requested
 task SetFloppyFiles -If { $script:SetFloppyFiles -eq $true } CopyScripts, {
     Write-Verbose "Setting Floppy files to contents of $script:PackerFilesDirectory"
     $script:FloppyFiles = Get-ChildItem $script:PackerFilesDirectory -Recurse | 
         Where-Object { $_.PSIsContainer -eq $false } |
             Select-Object -ExpandProperty PSPath |
                 Convert-Path
-    # This is horrible, but we need to escape the quotes with backslashes for the CLI to _actually_ pass them
-    # on to Packer 😩
-    $FloppyString = "[\`"$($script:FloppyFiles -join '\",\"')\`"]"
-    if ($script:PackerVariables.floppy_files)
-    {
-        $script:PackerVariables.floppy_files = $FloppyString
-    }
-    else
-    {
-        $script:PackerVariables.add('floppy_files', $FloppyString)
-    }
+
+    # Add it to our PackerVariables file
+    $script:PackerVariables.add('floppy_files', $script:FloppyFiles)
 }
 
 task SetHTTPDirectory -If { $Script:SetHTTPDirectory } CopyScripts, BuildMacOSPackages, CopyLinuxFiles, {
     Write-Verbose "Setting HTTP directory to $script:PackerFilesDirectory"
-    if ($script:PackerVariables.http_directory)
-    {
-        $script:PackerVariables.http_directory = ($script:PackerFilesDirectory | Convert-Path)
-    }
-    else
-    {
-        $script:PackerVariables.add('http_directory', ($script:PackerFilesDirectory | Convert-Path))
-    }
+    $script:PackerVariables.add('http_directory', ($script:PackerFilesDirectory | Convert-Path))
 }
 
 # Synopsis: Builds the Packer images
@@ -295,27 +269,35 @@ task InvokePacker CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirector
                 {
                     $script:PackerVariables.add('output_filename', $PackerOutputFilename)
                 }
-                $FloppyString = "[\`"$AutoUnattend\`",\`"$($script:FloppyFiles -join '\",\"')\`"]"
+                # Update our floppy_files variable to add in the autounattend
                 if ($script:PackerVariables.floppy_files)
                 {
-                    $script:PackerVariables.floppy_files = $FloppyString
+                    $FloppyFiles = @($AutoUnattend) + $script:PackerVariables.floppy_files
+                    $script:PackerVariables.floppy_files = $FloppyFiles
                 }
                 else
                 {
-                    $script:PackerVariables.add('floppy_files', $FloppyString)
+                    $script:PackerVariables.add('floppy_files', @($AutoUnattend))
                 }
+                # Convert our variables into something that Packer can parse easily
+                $ConvertedVariables = $script:PackerVariables | ConvertTo-PackerVariable -Verbose
+                # Due to issues with escape characters in the command line we use a variables to be safe
+                $PackerVarsFile = New-PackerVarsFile `
+                    -Path (Join-Path $script:BuildOutputDirectory 'variables.pkrvars.hcl') `
+                    -PackerVariables $ConvertedVariables `
+                    -Force
                 $script:PackerConfigs | ForEach-Object {
                     # First validate
                     Invoke-PackerValidate `
                         -PackerTemplate $_ `
                         -WorkingDirectory $script:BuildOutputDirectory `
-                        -TemplateVariables $script:PackerVariables `
+                        -VariableFile $PackerVarsFile `
                         -Verbose
                     # Then build
                     Invoke-PackerBuild `
                         -PackerTemplate $_ `
                         -WorkingDirectory $script:BuildOutputDirectory `
-                        -TemplateVariables $script:PackerVariables `
+                        -VariableFile $PackerVarsFile `
                         -Verbose
                 }
                 # Now we need to move the built subversions into the packer output directory so everything can end up in
@@ -325,19 +307,26 @@ task InvokePacker CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirector
         }
         Default
         {
+            # Convert our packer variables to make sure they are in a format that Packer can understand
+            $ConvertedVariables = $script:PackerVariables | ConvertTo-PackerVariable -Verbose
+            # Due to issues with escape characters in the command line we use a variables to be safe
+            $PackerVarsFile = New-PackerVarsFile `
+                -Path (Join-Path $script:BuildOutputDirectory 'variables.pkrvars.hcl') `
+                -PackerVariables $ConvertedVariables `
+                -Force
             Write-Verbose "Now building $OSVersion"
             $script:PackerConfigs | ForEach-Object {
                 # First validate
                 Invoke-PackerValidate `
                     -PackerTemplate $_ `
                     -WorkingDirectory $script:BuildOutputDirectory `
-                    -TemplateVariables $script:PackerVariables `
+                    -VariableFile $PackerVarsFile `
                     -Verbose
                 # Then build
                 Invoke-PackerBuild `
                     -PackerTemplate $_ `
                     -WorkingDirectory $script:BuildOutputDirectory `
-                    -TemplateVariables $script:PackerVariables `
+                    -VariableFile $PackerVarsFile `
                     -Verbose
             }
             # Move the completed builds so they are easy to find!
