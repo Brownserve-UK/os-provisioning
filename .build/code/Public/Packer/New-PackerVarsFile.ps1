@@ -41,23 +41,7 @@ function New-PackerVarsFile
     {
         $VarsFileContent = ""
         $PackerVariables | ForEach-Object {
-            $SanitizedVariableValue = $_.VariableValue
-            # For variables that contain Windows style paths we need to do some escaping
-            # We may prefix our variables with a quotation mark so we account for both scenarios
-            if ($_.VariableValue -match '^(?:"[a-zA-Z]|[a-zA-Z]):\\')
-            {
-                Write-Verbose "Sanitizing Windows path"
-                $SanitizedVariableValue = $_.VariableValue -replace '\\','/'
-            }
-            # If we've got a network file path we need to do some escaping too
-            # We may prefix our variables with a quotation mark so we account for both scenarios
-            if ($_.VariableValue -match '^(?:\\\\|"\\\\)')
-            {
-                Write-Verbose "Sanitizing network path"
-                # This should hopefully do the trick
-                $SanitizedVariableValue = [regex]::Escape($_.VariableValue)
-            }
-            $VarsFileContent += "$($_.VariableName) = $($SanitizedVariableValue)`n"
+            $VarsFileContent += "$($_.VariableName) = $($_.VariableValue)`n"
         }
         Write-Debug "VarsFileContent:`n`n$VarsFileContent"
 
