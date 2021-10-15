@@ -244,7 +244,9 @@ task InvokePacker CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirector
                 Where-Object { $_.Name -eq 'autounattend.xml' } |
                     Select-Object -ExpandProperty PSPath |
                         Convert-Path |
-                            Convert-WindowsPath
+                            ForEach-Object {
+                                Convert-WindowsPath $_
+                            }
 
             foreach ($AutoUnattend in $AutoUnattends)
             {
