@@ -46,7 +46,7 @@ param
 
 # Create an empty packer variables hash
 $script:PackerVariables = @{
-    iso_url           = $ISOPath
+    iso_url           = ($ISOPath | Convert-WindowsPath)
     iso_file_checksum = $ISOChecksum
 }
 $script:FloppyFiles = @()
@@ -83,7 +83,7 @@ task PrepareBuildOutputDirectory SetBuildInformation, {
 
     # Create a directory for packer to store the builds in but DO NOT create it, packer takes care of this and gets
     # mad if you try to do it yourself
-    $script:PackerOutputDirectory = Join-Path $BuildOutputDirectory 'packer'
+    $script:PackerOutputDirectory = Join-Path $BuildOutputDirectory 'packer' | Convert-WindowsPath
     # Set the output_directory packer variable
     $script:PackerVariables.add('output_directory', $PackerOutputDirectory)
 
@@ -97,7 +97,7 @@ task CopyISO -If ($CopyISO) PrepareBuildOutputDirectory, {
     # Create a directory for storing the image
     $script:ImagesDirectory = New-Item (Join-Path $script:BuildOutputDirectory 'images') -ItemType Directory -Force | Convert-Path
     # Copy the ISO and change the value of the iso_url Packer variable
-    $NewISOPath = Copy-ISO -ISOPath $ISOPath -Destination $script:ImagesDirectory | Convert-Path
+    $NewISOPath = Copy-ISO -ISOPath $ISOPath -Destination $script:ImagesDirectory | Convert-Path | Convert-WindowsPath
     if ($script:PackerVariables.iso_url)
     {
         $script:PackerVariables.iso_url = $NewISOPath
@@ -216,7 +216,8 @@ task SetFloppyFiles -If { $script:SetFloppyFiles -eq $true } CopyScripts, {
     $script:FloppyFiles = Get-ChildItem $script:PackerFilesDirectory -Recurse | 
         Where-Object { $_.PSIsContainer -eq $false } |
             Select-Object -ExpandProperty PSPath |
-                Convert-Path
+                Convert-Path |
+                    Convert-WindowsPath
 
     # Add it to our PackerVariables file
     $script:PackerVariables.add('floppy_files', $script:FloppyFiles)
@@ -224,7 +225,7 @@ task SetFloppyFiles -If { $script:SetFloppyFiles -eq $true } CopyScripts, {
 
 task SetHTTPDirectory -If { $Script:SetHTTPDirectory } CopyScripts, BuildMacOSPackages, CopyLinuxFiles, {
     Write-Verbose "Setting HTTP directory to $script:PackerFilesDirectory"
-    $script:PackerVariables.add('http_directory', ($script:PackerFilesDirectory | Convert-Path))
+    $script:PackerVariables.add('http_directory', ($script:PackerFilesDirectory | Convert-Path | Convert-WindowsPath))
 }
 
 # Synopsis: Builds the Packer images
@@ -238,7 +239,8 @@ task InvokePacker CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirector
             $AutoUnattends = Get-ChildItem $script:BuildOutputDirectory -Recurse | 
                 Where-Object { $_.Name -eq 'autounattend.xml' } |
                     Select-Object -ExpandProperty PSPath |
-                        Convert-Path
+                        Convert-Path |
+                            Convert-WindowsPath
 
             foreach ($AutoUnattend in $AutoUnattends)
             {
@@ -248,7 +250,7 @@ task InvokePacker CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirector
 
                 # Override the default output directory, we need to do this otherwise packer throws a wobbly cos
                 # there's files in the output directory -_-
-                $SubversionOutputDirectory = Join-Path $BuildOutputDirectory $Subversion 'packer'
+                $SubversionOutputDirectory = Join-Path $BuildOutputDirectory $Subversion 'packer' | Convert-WindowsPath
                 # Set the output_directory packer variable
                 if ($script:PackerVariables.output_directory)
                 {
