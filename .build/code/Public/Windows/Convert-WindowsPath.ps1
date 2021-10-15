@@ -1,17 +1,9 @@
 <#
 .SYNOPSIS
-    Very simple cmdlet that handles converting windows paths
+    Very simple cmdlet that handles converting Windows paths
 .DESCRIPTION
-    Long description
-.EXAMPLE
-    PS C:\> <example usage>
-    Explanation of what the example does
-.INPUTS
-    Inputs (if any)
-.OUTPUTS
-    Output (if any)
-.NOTES
-    General notes
+    When running on Windows machines paths need to be escaped correctly otherwise Packer gets sad :(
+    This cmdlet aids in doing so while leaving *nix paths untouched so it's safe to pipe any paths into this cmdlet.
 #>
 function Convert-WindowsPath
 {
