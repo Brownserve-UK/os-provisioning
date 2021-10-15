@@ -2,17 +2,14 @@
 .SYNOPSIS
     Converts a VHD file to a WIM image
 .DESCRIPTION
-    Long description
+    Converts a VHD file to a WIM image
     [Compatible with: Windows]
 .EXAMPLE
-    PS C:\> <example usage>
-    Explanation of what the example does
-.INPUTS
-    Inputs (if any)
-.OUTPUTS
-    Output (if any)
-.NOTES
-    General notes
+    PS C:\> ConvertTo-WIM `
+        -VHDPath C:\Images\Windows10.VHD `
+        -Destination C:\Images
+
+    Would convert the C:\Images\Windows10.VHD into a WIM stored in C:\Images
 #>
 function ConvertTo-WIM
 {
