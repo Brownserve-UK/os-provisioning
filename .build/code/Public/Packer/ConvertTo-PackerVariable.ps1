@@ -84,6 +84,19 @@ function ConvertTo-PackerVariable
                     Write-Verbose "$($PackerVariable.key) is a string will convert to a string"
                     $ConvertedValue = "`"$($PackerVariable.Value)`""
                 }
+                'hashtable'
+                {
+                    Write-Verbose "$($PackerVariable.key) is a hashtable will convert to a map"
+                    # Grab the nested hash
+                    $NestedHash = $PackerVariable.Value
+                    $NestedHashEnum = $NestedHash.GetEnumerator()
+                    $ConvertedValue = "{`n"
+                    $NestedHashEnum | ForEach-Object {
+                        $ConvertedValue = $ConvertedValue + "   `"$($_.Key)`" = `"$($_.Value)`"`n"
+                    }
+                    $ConvertedValue = $ConvertedValue + "}"
+
+                }
                 Default
                 {
                     Write-Error "Unhandled variable type '$($VariableType.BaseType)'"
