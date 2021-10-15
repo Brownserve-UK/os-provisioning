@@ -216,8 +216,10 @@ task SetFloppyFiles -If { $script:SetFloppyFiles -eq $true } CopyScripts, {
     $script:FloppyFiles = Get-ChildItem $script:PackerFilesDirectory -Recurse | 
         Where-Object { $_.PSIsContainer -eq $false } |
             Select-Object -ExpandProperty PSPath |
-                Convert-Path |
-                    Convert-WindowsPath
+                Convert-Path | 
+                    ForEach-Object {
+                        Convert-WindowsPath $_
+                    }
 
     # Add it to our PackerVariables file
     $script:PackerVariables.add('floppy_files', $script:FloppyFiles)
@@ -225,7 +227,9 @@ task SetFloppyFiles -If { $script:SetFloppyFiles -eq $true } CopyScripts, {
 
 task SetHTTPDirectory -If { $Script:SetHTTPDirectory } CopyScripts, BuildMacOSPackages, CopyLinuxFiles, {
     Write-Verbose "Setting HTTP directory to $script:PackerFilesDirectory"
-    $script:PackerVariables.add('http_directory', ($script:PackerFilesDirectory | Convert-Path | Convert-WindowsPath))
+    $script:PackerVariables.add('http_directory', ($script:PackerFilesDirectory | 
+                Convert-Path | 
+                    Convert-WindowsPath))
 }
 
 # Synopsis: Builds the Packer images
