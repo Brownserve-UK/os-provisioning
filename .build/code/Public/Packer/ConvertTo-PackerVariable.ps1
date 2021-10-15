@@ -1,6 +1,8 @@
 <#
 .SYNOPSIS
     Very simple function for converting some data types to Packer variables
+.NOTES
+    Doesn't handle every Packer variable type, only those used in this repo
 #>
 function ConvertTo-PackerVariable
 {
@@ -54,13 +56,32 @@ function ConvertTo-PackerVariable
             {
                 'Object[]'
                 {
-                    Write-Verbose "$($PackerVariable.key) is an array"
-                    # Variables need to be in the format of ["value1","value2"]
-                    $ConvertedValue = "[`"$($PackerVariable.Value -join '","')`"]"
+                    Write-Verbose "$($PackerVariable.key) is an array, will convert into a list"
+                    # Work out what type of list we're working with as both have different logic
+                    $ListType = $PackerVariable.Value[0].GetType()
+                    switch -regex ($ListType)
+                    {
+                        '^[iI]nt' 
+                        {
+                            Write-Verbose "Creating an integer list"
+                            $ConvertedValue = "[$($PackerVariable.Value -join ',')]"
+                        }
+                        '[Ss]tring'
+                        {
+                            Write-Verbose "Creating a list of strings"
+                            # Variables need to be in the format of ["value1","value2"] for strings
+                            $ConvertedValue = "[`"$($PackerVariable.Value -join '","')`"]"
+                        }
+                        Default
+                        {
+                            throw "Unsupported list type '$ListType'"
+                        }
+                    }
+                    
                 }
                 'string'
                 {
-                    Write-Verbose "$($PackerVariable.key) is a string"
+                    Write-Verbose "$($PackerVariable.key) is a string will convert to a string"
                     $ConvertedValue = "`"$($PackerVariable.Value)`""
                 }
                 Default
