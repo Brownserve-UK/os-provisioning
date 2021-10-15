@@ -57,7 +57,7 @@ function New-PackerVarsFile
                 # This should hopefully do the trick
                 $SanitizedVariableValue = [regex]::Escape($_.VariableValue)
             }
-            $VarsFileContent += "$($_.VariableName) = $($_.VariableValue)`n"
+            $VarsFileContent += "$($_.VariableName) = $($SanitizedVariableValue)`n"
         }
         Write-Debug "VarsFileContent:`n`n$VarsFileContent"
 
