@@ -280,7 +280,7 @@ task InvokePacker CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirector
                     $script:PackerVariables.add('floppy_files', @($AutoUnattend))
                 }
                 # Convert our variables into something that Packer can parse easily
-                $ConvertedVariables = $script:PackerVariables | ConvertTo-PackerVariable -Verbose
+                $ConvertedVariables = $script:PackerVariables | ConvertTo-PackerVariable
                 # Due to issues with escape characters in the command line we use a variables to be safe
                 $PackerVarsFile = New-PackerVarsFile `
                     -Path (Join-Path $script:BuildOutputDirectory 'variables.pkrvars.hcl') `
