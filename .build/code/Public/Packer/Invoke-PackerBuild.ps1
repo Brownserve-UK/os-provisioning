@@ -74,7 +74,15 @@ function Invoke-PackerBuild
             Mandatory = $false
         )]
         [string]
-        $WorkingDirectory
+        $WorkingDirectory,
+
+        # Path to a variable file to use
+        # This is often useful to get around weird escaping issues
+        [Parameter(
+            Mandatory = $false
+        )]
+        [string]
+        $VariableFile
     )
     
     begin
@@ -118,12 +126,20 @@ function Invoke-PackerBuild
         if ($TemplateVariables)
         {
             $TemplateVariables.GetEnumerator() | ForEach-Object {
-                $PackerArgs += @("--var","$($_.Name)=$($_.Value)")
+                $PackerArgs += @("--var", "$($_.Name)=$($_.Value)")
             }
+        }
+        if ($VariableFile)
+        {
+            if (!(Test-Path $VariableFile))
+            {
+                throw "$VariableFile does not appear to exist"
+            }
+            $PackerArgs += @('-var-file', $VariableFile)
         }
         $PackerArgs += "$($PackerTemplate | Convert-Path)"
         $SilentProcParams = @{
-            FilePath = 'packer'
+            FilePath     = 'packer'
             ArgumentList = $PackerArgs
         }
         if ($WorkingDirectory)
@@ -132,7 +148,7 @@ function Invoke-PackerBuild
             {
                 throw "Working directory $WorkingDirectory is not valid"
             }
-            $SilentProcParams.Add('WorkingDirectory',$WorkingDirectory)
+            $SilentProcParams.Add('WorkingDirectory', $WorkingDirectory)
         }
         Write-Verbose "Beginning Packer build for $PackerTemplate"
         try

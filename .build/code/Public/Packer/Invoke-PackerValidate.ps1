@@ -25,7 +25,7 @@ function Invoke-PackerValidate
         [Parameter(
             Mandatory = $false
         )]
-        [hashtable]
+        [PackerVariable[]]
         $TemplateVariables,
 
         # The working directory to use (useful for handling Packer's relative paths)
@@ -33,7 +33,15 @@ function Invoke-PackerValidate
             Mandatory = $false
         )]
         [string]
-        $WorkingDirectory
+        $WorkingDirectory,
+
+        # Path to a variable file to use
+        # This is often useful to get around weird escaping issues
+        [Parameter(
+            Mandatory = $false
+        )]
+        [string]
+        $VariableFile
     )
     
     begin
@@ -51,15 +59,23 @@ function Invoke-PackerValidate
     {
         Write-Verbose "Validating Packer configuration $PackerTemplate"
         $PackerArgs = @('validate')
-        if ($TemplateVariables)
+        if ($VariableFile)
         {
-            $TemplateVariables.GetEnumerator() | ForEach-Object {
-                $PackerArgs += @("--var","$($_.Name)=$($_.Value)")
+            if (!(Test-Path $VariableFile))
+            {
+                throw "$VariableFile does not appear to exist"
+            }
+            $PackerArgs += @('-var-file', $VariableFile)
+        }
+        if ($TemplateVariables) 
+        {   
+            $TemplateVariables | ForEach-Object {
+                $PackerArgs += @("--var", "$($_.VariableName)=$($_.VariableValue)")
             }
         }
         $PackerArgs += "$PackerTemplate"
         $StartSilentProcParams = @{
-            FilePath = 'packer'
+            FilePath     = 'packer'
             ArgumentList = $PackerArgs
         }
         if ($WorkingDirectory)
@@ -68,7 +84,7 @@ function Invoke-PackerValidate
             {
                 throw "Working directory $WorkingDirectory is not valid"
             }
-            $StartSilentProcParams.Add('WorkingDirectory',$WorkingDirectory)
+            $StartSilentProcParams.Add('WorkingDirectory', $WorkingDirectory)
         }
         try
         {
