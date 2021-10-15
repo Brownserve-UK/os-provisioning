@@ -202,8 +202,8 @@ task CopyScripts PrepareBuildOutputDirectory, {
         Write-Verbose "Copying common scripts"
         Get-ChildItem $script:CommonOSScripts -Recurse | Copy-Item -Destination $script:PackerFilesDirectory -Force
     }
-    # Now copy over any scripts specific to this build
-    if ((Test-Path $script:ConfigScripts))
+    # Now copy over any scripts specific to this build (don't need to test-path this one due to way we set the variable)
+    if ($script:ConfigScripts)
     {
         Write-Verbose "Copying build specific scripts"
         Get-ChildItem $script:ConfigScripts -Recurse | Copy-Item -Destination $script:PackerFilesDirectory -Force
