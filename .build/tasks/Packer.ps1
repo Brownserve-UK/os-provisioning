@@ -348,8 +348,8 @@ task InvokePacker CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirector
 
 task CopyBuildArtifacts -If ($CopyBuildArtifactsTo) InvokePacker, {
     Write-Verbose "Copying build artifacts to $BuildArtifactPath"
-    Get-ChildItem $global:CompletedPackerBuildsDirectory -Recurse | 
-        Copy-Item -Destination $BuildArtifactPath -Force
+    Get-ChildItem $global:CompletedPackerBuildsDirectory | 
+        Copy-Item -Destination $BuildArtifactPath -Recurse -Force
 }
 
 # Synopsis: Wrapper task for all the others
