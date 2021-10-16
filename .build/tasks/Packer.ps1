@@ -31,7 +31,7 @@ param
     )]
     [ValidateSet('Linux', 'macOS', 'Windows')]
     [string]
-    $OSType,
+    $OSFamily,
 
     # Whether or not to copy the ISO locally when building
     [Parameter(Mandatory = $false)]
@@ -65,7 +65,7 @@ task CheckBuildArtifactPath -If ($BuildArtifactPath) {
 
 # Synopsis: sets some basic build information applicable to everything
 task SetBuildInformation {
-    $script:OSVersion = "$OSType_$($BuildConfigurationPath | Split-Path -Leaf)"
+    $script:OSVersion = "$OSFamily_$($BuildConfigurationPath | Split-Path -Leaf)"
     $script:ConfigSubDirectories = Get-ChildItem $BuildConfigurationPath | 
         Where-Object { $_.PSIsContainer }
     $script:PackerConfigs = Get-ChildItem $BuildConfigurationPath | Where-Object { $_.Name -match '.hcl|.json' } | Convert-Path
@@ -92,7 +92,7 @@ task PrepareBuildOutputDirectory SetBuildInformation, {
     $script:PackerVariables.add('output_filename', $PackerOutputFilename)
 
     # Create a subdirectory in the completed build directory so we can better organize our output
-    $script:CompletedBuildDirectory = New-Item (Join-Path $global:CompletedPackerBuildsDirectory $OSVersion) -ItemType Directory -Force
+    $script:CompletedBuildDirectory = New-Item (Join-Path $global:CompletedPackerBuildsDirectory $OSFamily $OSVersion) -ItemType Directory -Force
 }
 
 # Synopsis: Copies the ISO to the build output directory if requested
@@ -112,7 +112,7 @@ task CopyISO -If ($CopyISO) PrepareBuildOutputDirectory, {
 }
 
 # Synopsis: Builds the macOS packages
-task BuildMacOSPackages -If ($OSType -eq 'macOS') PrepareBuildOutputDirectory, {
+task BuildMacOSPackages -If ($OSFamily -eq 'macOS') PrepareBuildOutputDirectory, {
     $PackagesDirectory = $script:ConfigSubDirectories | Where-Object { $_.Name -eq 'packages' }
     try
     {
@@ -151,7 +151,7 @@ task BuildMacOSPackages -If ($OSType -eq 'macOS') PrepareBuildOutputDirectory, {
 }
 
 # Synopsis: On Windows we have some funky logic so we set that up here
-task PrepareWindows -If ($OSType -eq 'Windows') PrepareBuildOutputDirectory, {
+task PrepareWindows -If ($OSFamily -eq 'Windows') PrepareBuildOutputDirectory, {
     # For Windows builds we have a list of autounattends that build our various flavours of Windows
     # (e.g. 'Server 2019 - Datacenter', 'Server 2019 - Standard' etc)
     Write-Verbose "Finding a list of Autounattend's"
@@ -173,7 +173,7 @@ task PrepareWindows -If ($OSType -eq 'Windows') PrepareBuildOutputDirectory, {
 }
 
 # Synopsis: If on Windows this will copy our autounattend's
-task CopyWindowsFiles -If ($OSType -eq 'Windows') PrepareWindows, {
+task CopyWindowsFiles -If ($OSFamily -eq 'Windows') PrepareWindows, {
     foreach ($OutputSubDirectory in $script:OutputSubDirectories)
     {
         # Copy the relevant autounattend to it's given subdirectory
@@ -187,7 +187,7 @@ task CopyWindowsFiles -If ($OSType -eq 'Windows') PrepareWindows, {
 }
 
 # Synopsis: Copies the files needed for running Linux builds over
-task CopyLinuxFiles -If ($OSType -eq 'Linux') PrepareBuildOutputDirectory, {
+task CopyLinuxFiles -If ($OSFamily -eq 'Linux') PrepareBuildOutputDirectory, {
     # Copy the bootstrap stuff over
     $script:BootstrapDirectory = Copy-Item (Join-Path $BuildConfigurationPath 'bootstrap') `
         -Destination $script:PackerFilesDirectory `
@@ -237,7 +237,7 @@ task SetHTTPDirectory -If { $Script:SetHTTPDirectory } CopyScripts, BuildMacOSPa
 
 # Synopsis: Builds the Packer images
 task InvokePacker CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirectory, BuildMacOSPackages, CopyLinuxFiles, CopyISO, {
-    switch ($OSType)
+    switch ($OSFamily)
     {
         # We have special logic for Windows builds as we build multiple versions of the same ISO.
         'Windows'
