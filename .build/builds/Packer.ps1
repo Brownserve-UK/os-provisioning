@@ -141,7 +141,7 @@ foreach ($ISO in $ISOs)
                 Continue
             }
             # Work out what OS type we have by seeing what parent folder it's in (e.g. macOS/Linux/Windows).
-            $OSFamily = $BuildConfigs | 
+            $OSType = $BuildConfigs | 
                 Where-Object { $_.Name -eq $OSName } | 
                     Select-Object -ExpandProperty PSParentPath | 
                         Split-Path -Leaf
@@ -152,7 +152,7 @@ foreach ($ISO in $ISOs)
             $IBParams = @{
                 File                   = (Join-Path $global:BuildTasksDirectory 'Packer.ps1')
                 Task                   = 'BuildPackerImages'
-                OSType                 = $OSFamily
+                OSFamily               = $OSType
                 BuildConfigurationPath = $BuildConfigPath
                 ISOPath                = $ISO.ISOPath
                 ISOChecksum            = $ISO.Shasum
