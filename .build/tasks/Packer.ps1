@@ -90,6 +90,9 @@ task PrepareBuildOutputDirectory SetBuildInformation, {
     # Set the default output filename
     $PackerOutputFilename = $OSVersion
     $script:PackerVariables.add('output_filename', $PackerOutputFilename)
+
+    # Create a subdirectory in the completed build directory so we can better organize our output
+    $script:CompletedBuildDirectory = New-Item (Join-Path $global:CompletedPackerBuildsDirectory $OSVersion) -ItemType Directory -Force
 }
 
 # Synopsis: Copies the ISO to the build output directory if requested
@@ -310,7 +313,7 @@ task InvokePacker CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirector
                 }
                 # Now we need to move the built subversions into the packer output directory so everything can end up in
                 # one place
-                Get-ChildItem $SubversionOutputDirectory -Recurse | Move-Item -Destination $global:CompletedPackerBuildsDirectory -Force
+                Get-ChildItem $SubversionOutputDirectory -Recurse | Move-Item -Destination $script:CompletedBuildDirectory -Force
             }
         }
         Default
@@ -338,7 +341,7 @@ task InvokePacker CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirector
                     -Verbose
             }
             # Move the completed builds so they are easy to find!
-            Get-ChildItem $script:PackerOutputDirectory -Recurse | Move-Item -Destination $global:CompletedPackerBuildsDirectory -Force
+            Get-ChildItem $script:PackerOutputDirectory -Recurse | Move-Item -Destination $script:CompletedBuildDirectory -Force
         }
     }
 }
