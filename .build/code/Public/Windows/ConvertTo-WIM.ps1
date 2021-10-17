@@ -34,7 +34,7 @@ function ConvertTo-WIM
         # The path to store the converted image in
         [Parameter(Mandatory = $false, Position = 1)]
         [string]
-        $Destination,
+        $Destination = $PWD,
 
         # The name of the operating system being converted
         [Parameter(Mandatory = $false, Position = 2)]
