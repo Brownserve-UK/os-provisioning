@@ -23,6 +23,8 @@
     It also needs to be run in an elevated prompt.
     The 'DeploymentSharePath' parameter must point to a network share, otherwise the MDT PowerShell module does not function
     correctly.
+
+    TODO: Check file hashes and do a noop on hash match? (unless -force)
 #>
 #Requires -Module MicrosoftDeploymentToolkit
 #Requires -RunAsAdministrator
