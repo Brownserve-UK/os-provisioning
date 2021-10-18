@@ -128,9 +128,11 @@ catch
 # Find and load any custom PowerShell modules we've written for this repo
 try
 {
-    Get-ChildItem $global:RepoCodeDirectory -Filter '*.psm1' -Recurse | ForEach-Object {
-        Import-Module $_ -Force -Verbose:$false
-    }
+    Get-ChildItem $global:RepoCodeDirectory -Filter '*.psm1' -Recurse | 
+        Where-Object { $_.BaseName -notlike 'MDTTools' } | 
+            ForEach-Object {
+                Import-Module $_ -Force -Verbose:$false
+            }
 }
 catch
 {
