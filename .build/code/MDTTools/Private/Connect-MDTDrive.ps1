@@ -23,7 +23,12 @@ function Connect-MDTDrive
         # Credentials to use (if any)
         [Parameter(Mandatory = $false)]
         [pscredential]
-        $Credential
+        $Credential,
+
+        # If set mounts the MDT drive as a file system rather than via the MDT provider
+        [Parameter()]
+        [switch]
+        $AsFileSystem
     )
     Write-Verbose "Connecting to MDT deployment share at $Path"
     # MDT PowerShell simply can't handle local paths so throw if we've got one
@@ -33,13 +38,20 @@ function Connect-MDTDrive
     }
     else
     {
+        if ($AsFilesystem)
+        {
+            $Provider = 'FileSystem'
+        }
+        else
+        {
+            $Provider = 'MDTProvider'
+        }
         $PSDriveName = 'MDT'
         $PSDriveParams = @{
             Name        = $PSDriveName
             Root        = $Path
-            PSProvider  = 'MDTProvider'
+            PSProvider  = $Provider
             ErrorAction = 'Stop'
-            Force       = $true
             Scope       = 'script'
         }
         if ($Credential)
