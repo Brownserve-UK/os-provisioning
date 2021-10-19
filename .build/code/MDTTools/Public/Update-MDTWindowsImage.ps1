@@ -50,6 +50,11 @@ function Update-MDTWindowsImage
         )]
         [string]
         $DeploymentSharePath,
+
+        # If you want to remove the WIM and just leave the copy in MDT then pass this parameter
+        [Parameter()]
+        [switch]
+        $CleanupInputWIM,
         
         # If you need different credentials to connect to the share specify those here
         [Parameter(Mandatory = $false)]
@@ -139,6 +144,12 @@ function Update-MDTWindowsImage
 
                 # Cast the return object to a pscustomobject and add it to our return output
                 $Return += [pscustomobject]$ReturnObject
+                
+                # Finally cleanup the input WIM if we've requested it
+                if ($CleanupInputWIM)
+                {
+                    Remove-Item $WIMPath -Force -Confirm:$false
+                }
             }
             catch
             {
