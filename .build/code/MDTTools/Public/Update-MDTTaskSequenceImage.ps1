@@ -1,18 +1,22 @@
 <#
 .SYNOPSIS
-    Updates the XML in a task sequence to ensure the new value replaces the old.
+    Updates the XML for a given task sequence to replace the WIM GUID with a new one.
 .DESCRIPTION
-    Long description
+    MDT task sequences store information about the Windows image to use for an OS deployment in an XML file.
+    When a WIM is updated task sequences do not get updated.
+    This cmdlet will scrub those XML files to update references for a given WIM GUID and replace it with the
+    new GUID from the updated WIM.
 .EXAMPLE
-    PS C:\> <example usage>
-    Explanation of what the example does
-.INPUTS
-    Inputs (if any)
-.OUTPUTS
-    Output (if any)
-.NOTES
-    General notes
+    PS C:\> Update-MDTTaskSequenceImage `
+        -OldImageGUID 'b7bcde10-bd3e-4f82-a620-0b7f0d49c75c' `
+        -NewImageGUID 'b7bcde10-bd3e-4f82-a620-0b7f0d49d32a' `
+        -DeploymentSharePath '\\FS-01\DeploymentShare' `
+
+    Would scrub any task sequences in '\\FS-01\DeploymentShare' that contain the GUID of 'b7bcde10-bd3e-4f82-a620-0b7f0d49c75c'
+    and replace it with 'b7bcde10-bd3e-4f82-a620-0b7f0d49d32a'.
 #>
+#Requires -PSEdition Desktop
+#Requires -RunAsAdministrator
 function Update-MDTTaskSequenceImage
 {
     [CmdletBinding()]
