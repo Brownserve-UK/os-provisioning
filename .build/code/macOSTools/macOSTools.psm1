@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    A collection os scripts for aiding in builds on this repo
+    Contains tools needed for building macOS images/packages
 #>
 #Requires -Version 6.0
 # In most cases we require the Brownserve.PSTools module, if that is not the case then comment out the below line
@@ -14,13 +14,14 @@ $PublicCmdlets = @()
 $CompatibleCmdlets = @()
 $IncompatibleCmdlets = @()
 
+
 # Dot source our private functions so they are available for our public functions to use
-Join-Path $PSScriptRoot -ChildPath 'Private' |
-    Resolve-Path |
-        Get-ChildItem -Filter *.ps1 -Recurse |
-            ForEach-Object {
-                . $_.FullName
-            }
+# Join-Path $PSScriptRoot -ChildPath 'Private' |
+#     Resolve-Path |
+#         Get-ChildItem -Filter *.ps1 -Recurse |
+#             ForEach-Object {
+#                 . $_.FullName
+#             }
 
 # Dot source our public functions and then add their help information to an array
 Join-Path $PSScriptRoot -ChildPath 'Public' |
@@ -34,7 +35,7 @@ Join-Path $PSScriptRoot -ChildPath 'Public' |
 # Go over the array we just created to see if all of our cmdlets/functions are compatible with the OS we are running
 # If they are then we export it for use, if not then we do not.
 $PublicCmdlets | ForEach-Object {
-    $RegexMatch = [regex]::Match(($_.Description | Out-String), '\[Compatible with: (?<os>.*)\]')
+    $RegexMatch = [regex]::Match(($_.Description | Out-String), '\[Compatible with:(?<os>.*)\]')
     if ($RegexMatch.Success)
     {
         $CompatibleOS = $RegexMatch.Groups['os'] -split ', '
