@@ -21,10 +21,6 @@ param
     [switch]
     $Cleanup
 )
-if ($InputFile -notmatch '(?:[vV][mM][dD][kK]|[Vv][Hh][Dd]|[Ww][Ii][Mm])$')
-{
-    throw 'InputFile must be one of: VMDK/VHD/WIM'
-}
 if (!($IsWindows))
 {
     throw "These build tasks only work on Windows"
@@ -32,6 +28,10 @@ if (!($IsWindows))
 if (!(Test-Administrator))
 {
     throw "These build tasks must be run in an elevated session"
+}
+if ($InputFile -notmatch '(?:[vV][mM][dD][kK]|[Vv][Hh][Dd]|[Ww][Ii][Mm])$')
+{
+    throw 'InputFile must be one of: VMDK/VHD/WIM'
 }
 $Script:CurrentFile = $InputFile | Convert-Path
 

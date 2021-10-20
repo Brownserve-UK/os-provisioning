@@ -56,7 +56,6 @@ catch
 
 try
 {
-    $Global:BuildOutputDirectory = New-Item (Join-Path $Global:RepoBuildDirectory 'MDT')
     $PathCheck = Get-Item $InputPath -Force
     if ($PathCheck.PSIsContainer)
     {
@@ -73,6 +72,7 @@ try
             throw "InputPath must be either a directory or path to a VMDK/VHD/WIM file"
         }
     }
+    $Global:BuildOutputDirectory = New-Item (Join-Path $Global:RepoBuildDirectory 'MDT')
 }
 catch
 {
