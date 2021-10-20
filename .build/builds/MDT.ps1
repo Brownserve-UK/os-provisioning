@@ -56,6 +56,7 @@ catch
 
 try
 {
+    $Global:BuildOutputDirectory = New-Item (Join-Path $Global:RepoBuildDirectory 'MDT')
     $PathCheck = Get-Item $InputPath -Force
     if ($PathCheck.PSIsContainer)
     {

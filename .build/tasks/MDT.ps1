@@ -39,7 +39,7 @@ $Script:CurrentFile = $InputFile | Convert-Path
 task ConvertVMDKtoVHD -If ($InputFile -match '.[vV][mM][dD][kK]$') {
     $ConvertVMDKParams = @{
         VMDKPath    = $Script:CurrentFile
-        Destination = $global:TBD
+        Destination = ($global:BuildOutputDirectory | Convert-Path)
     }
     if ($Cleanup)
     {
