@@ -52,6 +52,7 @@ task ConvertVMDKtoVHD -If ($InputFile -match '.[vV][mM][dD][kK]$') {
 task ConvertVHDtoWIM -If (($InputFile -match '.[vV][mM][dD][kK]$') -or ($InputFile -match '.[vV][hH][dD]$')) ConvertVMDKtoVHD, {
     $ConvertVHDParams = @{
         VHDPath = $Script:CurrentFile
+        Destination = $Global:BuildOutputDirectory
     }
     if ($Cleanup)
     {
@@ -62,7 +63,8 @@ task ConvertVHDtoWIM -If (($InputFile -match '.[vV][mM][dD][kK]$') -or ($InputFi
 
 # Synopsis: Updates MDT with the new WIM image
 task UpdateMDT ConvertVHDtoWIM, {
-    $MDTModulePath = Join-Path $global:RepoCodeDirectory 'MDTTools' 'MDTTools.psm1' | Convert-Path
+    $RepoMDTModulePath = Join-Path $global:RepoCodeDirectory 'MDTTools' 'MDTTools.psm1' | Convert-Path
+    $MDTModulePath = 'C:\Program Files\Microsoft Deployment Toolkit\Bin\MicrosoftDeploymentToolkit.psd1' | Convert-Path
 
     # Unfortunately the MDT PowerShell module only works with PowerShell for Windows Desktop :(
     # Therefore we invoke a new PowerShell process to handle updating the WIM in MDT
@@ -70,6 +72,7 @@ task UpdateMDT ConvertVHDtoWIM, {
         param
         (
             [string]$MDTModulePath,
+            [string]$RepoMDTModulePath,
             [string]$SourceWIM,
             [string]$DeploymentSharePath,
             [bool]$Cleanup,
@@ -79,10 +82,11 @@ task UpdateMDT ConvertVHDtoWIM, {
         try
         {
             Import-Module $MDTModulePath -Force
+            Import-Module $RepoMDTModulePath -Force
 
             # First update the WIM image
             $UpdateWIMParams = @{
-                SourceWIM           = $Script:CurrentFile
+                SourceWIM           = $SourceWIM
                 DeploymentSharePath = $DeploymentSharePath
             }
             if ($Credential)
@@ -112,11 +116,12 @@ task UpdateMDT ConvertVHDtoWIM, {
         }
         catch
         {
-            throw \"Failed to update MDT image.`n$($_.Exception.Message)\"
+            throw "Failed to update MDT image.`n$($_.Exception.Message)"
         }
     }
     $ScriptArgs = @(
         $MDTModulePath,
+        $RepoMDTModulePath,
         $Script:CurrentFile,
         $DeploymentSharePath
     )
@@ -129,6 +134,5 @@ task UpdateMDT ConvertVHDtoWIM, {
         $ScriptArgs += $Credential
     }
     Write-Verbose "Attempting to spawn a new PowerShell process"
-    # We need to capture the returned 
-    & powershell -Noninteractive -Command $ScriptToRun -Args $ScriptArgs -WorkingDirectory $global:RepoRootDirectory
+    & powershell -Noninteractive -Command $ScriptToRun -Args $ScriptArgs
 }

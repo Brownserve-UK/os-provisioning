@@ -46,7 +46,7 @@ Write-Host "Starting build $($MyInvocation.MyCommand)"
 try
 {
     Write-Verbose "Initialising repo"
-    $initScriptPath = Join-Path $PSScriptRoot -ChildPath '_init.ps1' | Convert-Path
+    $initScriptPath = Join-Path $PSScriptRoot '..' '_init.ps1' | Convert-Path
     . $initScriptPath
 }
 catch
@@ -72,7 +72,7 @@ try
             throw "InputPath must be either a directory or path to a VMDK/VHD/WIM file"
         }
     }
-    $Global:BuildOutputDirectory = New-Item (Join-Path $Global:RepoBuildDirectory 'MDT')
+    $Global:BuildOutputDirectory = New-Item (Join-Path $Global:RepoBuildOutputDirectory 'MDT') -ItemType Directory
 }
 catch
 {
