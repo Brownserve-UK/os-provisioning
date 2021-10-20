@@ -33,7 +33,7 @@ if (!(Test-Administrator))
 {
     throw "These build tasks must be run in an elevated session"
 }
-$Script:CurrentFile = $InputFile
+$Script:CurrentFile = $InputFile | Convert-Path
 
 # Synopsis: Converts the VMDK file into a WIM image
 task ConvertVMDKtoVHD -If ($InputFile -match '.[vV][mM][dD][kK]$') {
@@ -93,7 +93,7 @@ task UpdateMDT ConvertVHDtoWIM, {
             {
                 $UpdateWIMParams.Add('CleanupInputWIM', $true)
             }
-            $GUIDs = Update-MDTWindowsImage @UpdateWIMParams
+            $GUIDs = Update-MDTWindowsImage @UpdateWIMParams -Verbose
 
             # Now update the task sequences but only if we've updated an existing WIM.
             if ($GUIDs.OldGUID)
@@ -107,7 +107,7 @@ task UpdateMDT ConvertVHDtoWIM, {
                 {
                     $UpdateTSParams.Add('Credential', $Credential)
                 }
-                Update-MDTTaskSequenceImage @UpdateTSParams
+                Update-MDTTaskSequenceImage @UpdateTSParams -Verbose
             }
         }
         catch
