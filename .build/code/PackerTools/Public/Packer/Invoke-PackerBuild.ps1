@@ -51,7 +51,7 @@ function Invoke-PackerBuild
         [Parameter(
             Mandatory = $false
         )]
-        [hashtable]
+        [PackerVariable[]]
         $TemplateVariables,
 
         # Add timestamps to stdout
@@ -126,7 +126,7 @@ function Invoke-PackerBuild
         if ($TemplateVariables)
         {
             $TemplateVariables.GetEnumerator() | ForEach-Object {
-                $PackerArgs += @("--var", "$($_.Name)=$($_.Value)")
+                $PackerArgs += @("--var", "$($_.VariableName)=$($_.VariableValue)")
             }
         }
         if ($VariableFile)
