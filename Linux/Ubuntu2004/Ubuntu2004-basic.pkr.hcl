@@ -35,12 +35,12 @@ variable "output_filename" {
 
 variable "ssh_password" {
   type    = string
-  default = "packer"
+  default = "vagrant"
 }
 
 variable "ssh_username" {
   type    = string
-  default = "packer"
+  default = "vagrant"
 }
 
 # Depending on the host system speed it can be a while before SSH is ready
@@ -82,7 +82,7 @@ variable "headless" {
   description = "If set the VM will boot-up in the background"
 }
 
-source "virtualbox-iso" "ubuntu2004-iso" {
+source "virtualbox-iso" "ubuntu2004" {
   guest_os_type        = "Ubuntu_64"
   guest_additions_mode = "disable"
   headless             = var.headless
@@ -119,5 +119,5 @@ source "virtualbox-iso" "ubuntu2004-iso" {
 # This builds a very basic image from a vanilla ISO
 build {
   name    = "basic"
-  sources = ["sources.virtualbox-iso.ubuntu2004-iso"]
+  sources = ["sources.virtualbox-iso.ubuntu2004"]
 }

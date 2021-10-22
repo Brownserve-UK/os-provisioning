@@ -5,8 +5,8 @@ autoinstall:
     - systemctl stop ssh
   identity:
     hostname: ubuntu2004
-    username: packer
-    password: $6$cWG3kysF74$L4Kvshk5ysbBKq4PJKMEaRHebAB5gjSiClTbEkt.FxyaIHXQrda0.Em4gAZ5tDaI1KIevQyMlECKnuYIUT9OK0
+    username: vagrant
+    password: $6$rounds=4096$Jug2wfMjo$9Rn7jeXDspWqL.7hPDDeLkxbU76SRCT9/bJw5031.3Nt9Y19kQg90QzbjwqwKtG3RsAYeWfkgcfi76tHBKSD3/
   ssh:
     allow-pw: true
     install-server: true
@@ -16,7 +16,9 @@ autoinstall:
   storage:
     layout:
       name: lvm
+  packages:
+    - whois
   late-commands:
-    - "echo 'Defaults:packer !requiretty' > /target/etc/sudoers.d/packer"
-    - "echo 'packer ALL=(ALL) NOPASSWD: ALL' >> /target/etc/sudoers.d/packer"
-    - "chmod 440 /target/etc/sudoers.d/packer"
+    - "echo 'Defaults:vagrant !requiretty' > /target/etc/sudoers.d/vagrant"
+    - "echo 'vagrant ALL=(ALL) NOPASSWD: ALL' >> /target/etc/sudoers.d/vagrant"
+    - "chmod 440 /target/etc/sudoers.d/vagrant"
