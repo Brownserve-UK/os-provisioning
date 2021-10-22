@@ -68,7 +68,7 @@ task SetBuildInformation {
     $script:OSVersion = "$OSFamily_$($BuildConfigurationPath | Split-Path -Leaf)"
     $script:ConfigSubDirectories = Get-ChildItem $BuildConfigurationPath | 
         Where-Object { $_.PSIsContainer }
-    $script:PackerConfigs = Get-ChildItem $BuildConfigurationPath | Where-Object { $_.Name -match '.hcl|.json' } | Convert-Path
+    $script:PackerConfigs = Get-ChildItem $BuildConfigurationPath | Where-Object { $_.Name -match '.hcl|.json' }
     $script:ConfigScripts = Get-ChildItem $BuildConfigurationPath | Where-Object { $_.Name -eq 'scripts' }
     $script:CommonOSScripts = Join-Path $BuildConfigurationPath '..' 'scripts'
     Write-Verbose "OSVersion: $OSVersion"
@@ -81,17 +81,10 @@ task PrepareBuildOutputDirectory SetBuildInformation, {
     $script:PackerFilesDirectory = New-Item (Join-Path $script:BuildOutputDirectory 'files') -ItemType Directory -Force
     Write-Verbose "Build artifacts can be found in $script:BuildOutputDirectory"
 
-    # Create a directory for packer to store the builds in but DO NOT create it, packer takes care of this and gets
-    # mad if you try to do it yourself
-    $script:PackerOutputDirectory = Join-Path $BuildOutputDirectory 'packer' | Convert-WindowsPath
-    # Set the output_directory packer variable
-    $script:PackerVariables.add('output_directory', $PackerOutputDirectory)
+    # Create a directory for Packer build artifacts
+    $script:PackerOutputDirectory = New-Item (Join-Path $BuildOutputDirectory 'packer') -ItemType Directory -Force
 
-    # Set the default output filename
-    $PackerOutputFilename = $OSVersion
-    $script:PackerVariables.add('output_filename', $PackerOutputFilename)
-
-    # Create a subdirectory in the completed build directory so we can better organize our output
+    # Create a subdirectory in the completed build directory so we can better organize our various output objects
     $script:CompletedBuildDirectory = New-Item (Join-Path $global:CompletedPackerBuildsDirectory $OSFamily $OSVersion) -ItemType Directory -Force
 }
 
@@ -137,10 +130,10 @@ task BuildMacOSPackages -If ($OSFamily -eq 'macOS') PrepareBuildOutputDirectory,
         $PyCreateUserPkgPath = Join-Path $global:PaketFilesDirectory 'gregneagle' 'pycreateuserpkg' 'createuserpkg' | Convert-Path
         # This isn't executable on download :(
         & chmod +x $PyCreateUserPkgPath
-        Write-Verbose "Building packer_user.pkg"
+        Write-Verbose "Building vagrant_user.pkg"
         Start-SilentProcess `
             -FilePath $PyCreateUserPkgPath `
-            -ArgumentList "-n packer -f packer -p packer -u 525 -V 1 -i com.brownserveuk.packer -a -A -d $(Join-Path $script:PackerFilesDirectory 'packer_user.pkg')"
+            -ArgumentList "-n vagrant -f vagrant -p vagrant -u 525 -V 1 -i com.brownserveuk.vagrant -a -A -d $(Join-Path $script:PackerFilesDirectory 'vagrant_user.pkg')"
     }
     catch
     {
@@ -253,51 +246,74 @@ task InvokePacker CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirector
 
             foreach ($AutoUnattend in $AutoUnattends)
             {
+                $FilesToMove = @()
                 $Subversion = Get-Item $AutoUnattend | Select-Object -ExpandProperty PSParentPath | Split-Path -Leaf
                 
                 Write-Verbose "Now building $OSVersion-$Subversion"
 
                 # Override the default output directory, we need to do this otherwise packer throws a wobbly cos
                 # there's files in the output directory -_-
-                $SubversionOutputDirectory = Join-Path $BuildOutputDirectory $Subversion 'packer' | Convert-WindowsPath
-                # Set the output_directory packer variable
-                if ($script:PackerVariables.output_directory)
-                {
-                    $script:PackerVariables.output_directory = $SubversionOutputDirectory
-                }
-                else
-                {
-                    $script:PackerVariables.add('output_directory', $SubversionOutputDirectory)
-                }
+                $SubversionOutputDirectory = Join-Path $BuildOutputDirectory $Subversion
                 
-                # Override the default Packer filename
-                $PackerOutputFilename = "$OSVersion-$Subversion"
-                if ($script:PackerVariables.output_filename)
-                {
-                    $script:PackerVariables.output_filename = $PackerOutputFilename
-                }
-                else
-                {
-                    $script:PackerVariables.add('output_filename', $PackerOutputFilename)
-                }
                 # Update our floppy_files variable to add in the autounattend
-                if ($script:PackerVariables.floppy_files)
+                # We first need to capture the current state of the floppy files as if we try to update the PackerVariables.floppy_files
+                # each time it will end up with ALL of our autounattends... D:
+                # so we "freeze" our floppy files in time and add the extra autounattend in each time
+                if (!$script:DefaultFloppyFiles)
                 {
-                    $FloppyFiles = @($AutoUnattend) + $script:PackerVariables.floppy_files
-                    $script:PackerVariables.floppy_files = $FloppyFiles
+                    # Capture our current floppy files as the default
+                    $script:DefaultFloppyFiles = $script:PackerVariables.floppy_files
                 }
-                else
-                {
-                    $script:PackerVariables.add('floppy_files', @($AutoUnattend))
-                }
-                # Convert our variables into something that Packer can parse easily
-                $ConvertedVariables = $script:PackerVariables | ConvertTo-PackerVariable
-                # Due to issues with escape characters in the command line we use a variables to be safe
-                $PackerVarsFile = New-PackerVarsFile `
-                    -Path (Join-Path $script:BuildOutputDirectory 'variables.pkrvars.hcl') `
-                    -PackerVariables $ConvertedVariables `
-                    -Force
+                $script:PackerVariables.floppy_files = @($AutoUnattend) + $script:DefaultFloppyFiles
+
                 $script:PackerConfigs | ForEach-Object {
+
+                    # The directory for packer to store the builds in. DO NOT create it, packer takes care of this and gets
+                    # mad if you try to do it yourself
+                    # We need a separate one per-config to avoid Packer complaining
+                    $output_directory = Join-Path $SubversionOutputDirectory "$($_.Name -replace '.pkr.hcl|.json','')" | Convert-WindowsPath
+                    # Set the output_directory packer variable
+                    if ($script:PackerVariables.output_directory)
+                    {
+                        $script:PackerVariables.output_directory = $output_directory
+                    }
+                    else
+                    {                
+                        $script:PackerVariables.add('output_directory', $output_directory)
+                    }
+
+                    # Set the default output filename
+                    $output_filename = "$($_.Name -replace '.pkr.hcl|.json','')-$Subversion"
+                    if ($script:PackerVariables.output_filename)
+                    {
+                        $script:PackerVariables.output_filename = $output_filename
+                    }
+                    else
+                    {
+                        $script:PackerVariables.add('output_filename', $output_filename)
+                    }
+
+                    if ($script:PreviousOutput)
+                    {
+                        if ($script:PackerVariables.input_file)
+                        {
+                            $script:PackerVariables.input_file = $script:PreviousOutput
+                        }
+                        else
+                        {
+                            $script:PackerVariables.add('input_file', $script:PreviousOutput)
+                        }
+                    }
+                
+                    # Convert our packer variables to make sure they are in a format that Packer can understand
+                    $ConvertedVariables = $script:PackerVariables | ConvertTo-PackerVariable
+
+                    # Due to issues with escape characters in the command line we use a variables file to be safe
+                    $PackerVarsFile = New-PackerVarsFile `
+                        -Path (Join-Path $script:BuildOutputDirectory 'variables.pkrvars.hcl') `
+                        -PackerVariables $ConvertedVariables `
+                        -Force
+
                     # First validate
                     Invoke-PackerValidate `
                         -PackerTemplate $_ `
@@ -310,26 +326,70 @@ task InvokePacker CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirector
                         -WorkingDirectory $script:BuildOutputDirectory `
                         -VariableFile $PackerVarsFile `
                         -Verbose
+
+                    # After a successful build we store the resulting OVF file in a global variable for the next build to use
+                    $script:PreviousOutput = Get-ChildItem $output_directory | Where-Object { $_.Name -match '.ovf$' } | Convert-Path | Convert-WindowsPath
+                    # We can't move the files yet as they may be needed by the next build, so store them for later.
+                    $FilesToMove += $output_directory
                 }
                 # Now we need to move the built subversions into the packer output directory so everything can end up in
                 # one place
-                Get-ChildItem $SubversionOutputDirectory -Recurse | Move-Item -Destination $script:CompletedBuildDirectory -Force
+                $FilesToMove | Get-ChildItem -Recurse | Move-Item -Destination $script:CompletedBuildDirectory -Force
             }
         }
         Default
         {
-            # Convert our packer variables to make sure they are in a format that Packer can understand
-            $ConvertedVariables = $script:PackerVariables | ConvertTo-PackerVariable -Verbose
-            # Due to issues with escape characters in the command line we use a variables to be safe
-            $PackerVarsFile = New-PackerVarsFile `
-                -Path (Join-Path $script:BuildOutputDirectory 'variables.pkrvars.hcl') `
-                -PackerVariables $ConvertedVariables `
-                -Force
             Write-Verbose "Now building $OSVersion"
             $script:PackerConfigs | ForEach-Object {
+                # The directory for packer to store the builds in. DO NOT create it, packer takes care of this and gets
+                # mad if you try to do it yourself
+                # We need a separate one per-config to avoid Packer complaining
+                $output_directory = Join-Path $script:PackerOutputDirectory "$($_.Name -replace '.pkr.hcl|.json','')" | Convert-WindowsPath
+                # Set the output_directory packer variable
+                if ($script:PackerVariables.output_directory)
+                {
+                    $script:PackerVariables.output_directory = $output_directory
+                }
+                else
+                {                
+                    $script:PackerVariables.add('output_directory', $output_directory)
+                }
+
+                # Set the default output filename
+                $output_filename = "$($_.Name -replace '.pkr.hcl|.json','')"
+                if ($script:PackerVariables.output_filename)
+                {
+                    $script:PackerVariables.output_filename = $output_filename
+                }
+                else
+                {
+                    $script:PackerVariables.add('output_filename', $output_filename)
+                }
+
+                if ($script:PreviousOutput)
+                {
+                    if ($script:PackerVariables.input_file)
+                    {
+                        $script:PackerVariables.input_file = $script:PreviousOutput
+                    }
+                    else
+                    {
+                        $script:PackerVariables.add('input_file', $script:PreviousOutput)
+                    }
+                }
+                
+                # Convert our packer variables to make sure they are in a format that Packer can understand
+                $ConvertedVariables = $script:PackerVariables | ConvertTo-PackerVariable
+
+                # Due to issues with escape characters in the command line we use a variables file to be safe
+                $PackerVarsFile = New-PackerVarsFile `
+                    -Path (Join-Path $script:BuildOutputDirectory 'variables.pkrvars.hcl') `
+                    -PackerVariables $ConvertedVariables `
+                    -Force
+
                 # First validate
                 Invoke-PackerValidate `
-                    -PackerTemplate $_ `
+                    -PackerTemplate ($_ | Convert-Path) `
                     -WorkingDirectory $script:BuildOutputDirectory `
                     -VariableFile $PackerVarsFile `
                     -Verbose
@@ -339,6 +399,8 @@ task InvokePacker CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirector
                     -WorkingDirectory $script:BuildOutputDirectory `
                     -VariableFile $PackerVarsFile `
                     -Verbose
+                # After a successful build we store the resulting OVF file in a global variable for the next build to use
+                $script:PreviousOutput = Get-ChildItem $output_directory | Where-Object { $_.Name -match '.ovf$' } | Convert-Path | Convert-WindowsPath
             }
             # Move the completed builds so they are easy to find!
             Get-ChildItem $script:PackerOutputDirectory -Recurse | Move-Item -Destination $script:CompletedBuildDirectory -Force
