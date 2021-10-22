@@ -1,3 +1,5 @@
+# This builds a very basic image of Ubuntu 18.04 with only minimal changes from a vanilla install.
+
 # Tested with the below version only
 packer {
   required_version = ">= 1.7.6"
@@ -29,18 +31,18 @@ variable "output_directory" {
 
 variable "output_filename" {
   type        = string
-  default     = "ubuntu1804"
+  default     = "ubuntu1804-basic"
   description = "The name packer should use for the resulting build output"
 }
 
 variable "ssh_password" {
   type    = string
-  default = "packer"
+  default = "vagrant"
 }
 
 variable "ssh_username" {
   type    = string
-  default = "packer"
+  default = "vagrant"
 }
 
 # Depending on the host system speed it can be a while before SSH is ready
@@ -120,7 +122,6 @@ source "virtualbox-iso" "ubuntu1804-iso" {
   ]
 }
 
-# This builds a very basic image from a vanilla ISO
 build {
   name    = "basic"
   sources = ["sources.virtualbox-iso.ubuntu1804-iso"]
