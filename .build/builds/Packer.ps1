@@ -39,7 +39,12 @@ param
     # If set will copy the ISO's to the local build output directory, handy if your ISO's are on slow storage
     [Parameter(Mandatory = $false)]
     [switch]
-    $CopyISO
+    $CopyISO,
+
+    # If set will change the default local admin user's username/password for customized builds
+    [Parameter(Mandatory = $false)]
+    [pscredential]
+    $LocalAdminCredentials
 )
 # Always stop on errors
 $ErrorActionPreference = 'Stop'
@@ -164,6 +169,10 @@ foreach ($ISO in $ISOs)
             if ($CopyBuildArtifactsTo)
             {
                 $IBParams.Add('BuildArtifactPath', $CopyBuildArtifactsTo)
+            }
+            if ($LocalAdminCredentials)
+            {
+                $IBParams.Add('LocalAdminCredentials',$LocalAdminCredentials)
             }
             Invoke-Build @IBParams -Verbose:($PSBoundParameters['Verbose'] -eq $true)
                 

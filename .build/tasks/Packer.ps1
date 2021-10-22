@@ -33,6 +33,11 @@ param
     [string]
     $OSFamily,
 
+    # The credentials for the local admin user to create
+    [Parameter(Mandatory = $false)]
+    [pscredential]
+    $LocalAdminCredentials,
+
     # Whether or not to copy the ISO locally when building
     [Parameter(Mandatory = $false)]
     [bool]
@@ -72,6 +77,21 @@ task SetBuildInformation {
     $script:ConfigScripts = Get-ChildItem $BuildConfigurationPath | Where-Object { $_.Name -eq 'scripts' }
     $script:CommonOSScripts = Join-Path $BuildConfigurationPath '..' 'scripts'
     Write-Verbose "OSVersion: $OSVersion"
+}
+
+# Synopsis: Sets any "secure" variables
+task SetSecureVariables {
+    # Secure variables is perhaps a bit of a misnomer as these are really just variables that do not get written to a
+    # vars file and instead get passed in via the CLI to keep them a bit more secret
+
+    # At the moment we only have the one, but this may change in future
+    if ($LocalAdminCredentials)
+    {
+        $script:SecureVariables = @{
+            local_admin_username = $LocalAdminCredentials.UserName
+            local_admin_password = ($LocalAdminCredentials.Password | ConvertFrom-SecureString -AsPlainText)
+        }
+    }
 }
 
 # Synopsis: Creates the build output directory structure
@@ -229,7 +249,7 @@ task SetHTTPDirectory -If { $Script:SetHTTPDirectory } CopyScripts, BuildMacOSPa
 }
 
 # Synopsis: Builds the Packer images
-task InvokePacker CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirectory, BuildMacOSPackages, CopyLinuxFiles, CopyISO, {
+task InvokePacker SetSecureVariables, CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirectory, BuildMacOSPackages, CopyLinuxFiles, CopyISO, {
     switch ($OSFamily)
     {
         # We have special logic for Windows builds as we build multiple versions of the same ISO.
@@ -314,18 +334,23 @@ task InvokePacker CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirector
                         -PackerVariables $ConvertedVariables `
                         -Force
 
+                    $PackerParams = @{
+                        PackerTemplate   = $_
+                        WorkingDirectory = $script:BuildOutputDirectory
+                        VariableFile     = $PackerVarsFile
+                    }
+                    # Only the customize builds have the logic for setting local admin users
+                    if ($script:SecureVariables -and ($_.Name -match '-customized'))
+                    {
+                        $ConvertedSecureVariables = $script:SecureVariables | ConvertTo-PackerVariable
+                        $PackerParams.add('TemplateVariables', $ConvertedSecureVariables)
+                    }
+
                     # First validate
-                    Invoke-PackerValidate `
-                        -PackerTemplate $_ `
-                        -WorkingDirectory $script:BuildOutputDirectory `
-                        -VariableFile $PackerVarsFile `
-                        -Verbose
+                    Invoke-PackerValidate @PackerParams -Verbose
+
                     # Then build
-                    Invoke-PackerBuild `
-                        -PackerTemplate $_ `
-                        -WorkingDirectory $script:BuildOutputDirectory `
-                        -VariableFile $PackerVarsFile `
-                        -Verbose
+                    Invoke-PackerBuild @PackerParams -Verbose
 
                     # After a successful build we store the resulting OVF file in a global variable for the next build to use
                     $script:PreviousOutput = Get-ChildItem $output_directory | Where-Object { $_.Name -match '.ovf$' } | Convert-Path | Convert-WindowsPath
@@ -387,18 +412,24 @@ task InvokePacker CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirector
                     -PackerVariables $ConvertedVariables `
                     -Force
 
+                $PackerParams = @{
+                    PackerTemplate   = $_
+                    WorkingDirectory = $script:BuildOutputDirectory
+                    VariableFile     = $PackerVarsFile
+                }
+                # Only the customize builds have the logic for setting local admin users
+                if ($script:SecureVariables -and ($_.Name -match '-customized'))
+                {
+                    $ConvertedSecureVariables = $script:SecureVariables | ConvertTo-PackerVariable
+                    $PackerParams.add('TemplateVariables', $ConvertedSecureVariables)
+                }
+
                 # First validate
-                Invoke-PackerValidate `
-                    -PackerTemplate ($_ | Convert-Path) `
-                    -WorkingDirectory $script:BuildOutputDirectory `
-                    -VariableFile $PackerVarsFile `
-                    -Verbose
+                Invoke-PackerValidate @PackerParams -Verbose
+
                 # Then build
-                Invoke-PackerBuild `
-                    -PackerTemplate $_ `
-                    -WorkingDirectory $script:BuildOutputDirectory `
-                    -VariableFile $PackerVarsFile `
-                    -Verbose
+                Invoke-PackerBuild @PackerParams -Verbose
+
                 # After a successful build we store the resulting OVF file in a global variable for the next build to use
                 $script:PreviousOutput = Get-ChildItem $output_directory | Where-Object { $_.Name -match '.ovf$' } | Convert-Path | Convert-WindowsPath
             }
