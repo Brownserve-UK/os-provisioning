@@ -1,4 +1,5 @@
 #!/bin/sh -eux
+# Configures SSH using our sensible defaults
 
 SSHD_CONFIG="/etc/ssh/sshd_config"
 
@@ -9,12 +10,12 @@ USEDNS="UseDNS no"
 if grep -q -E "^[[:space:]]*UseDNS" "$SSHD_CONFIG"; then
     sed -i "s/^\s*UseDNS.*/${USEDNS}/" "$SSHD_CONFIG"
 else
-    echo "$USEDNS" >>"$SSHD_CONFIG"
+    echo '$USEDNS' >>$SSHD_CONFIG
 fi
 
 GSSAPI="GSSAPIAuthentication no"
 if grep -q -E "^[[:space:]]*GSSAPIAuthentication" "$SSHD_CONFIG"; then
     sed -i "s/^\s*GSSAPIAuthentication.*/${GSSAPI}/" "$SSHD_CONFIG"
 else
-    echo "$GSSAPI" >>"$SSHD_CONFIG"
+    echo '$GSSAPI' >>$SSHD_CONFIG
 fi
