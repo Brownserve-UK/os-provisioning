@@ -29,7 +29,7 @@ variable "output_directory" {
 
 variable "output_filename" {
   type        = string
-  default     = "Ubuntu2004"
+  default     = "Ubuntu2004-base"
   description = "The name packer should use for the resulting build output"
 }
 
@@ -116,8 +116,7 @@ source "virtualbox-iso" "ubuntu2004" {
   ]
 }
 
-# This builds a very basic image from a vanilla ISO
 build {
-  name    = "basic"
+  name    = "base"
   sources = ["sources.virtualbox-iso.ubuntu2004"]
 }

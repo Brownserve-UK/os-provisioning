@@ -1,4 +1,4 @@
-# This builds a more customised Ubuntu 18.04 image
+# This builds a vagrant box for Ubuntu 20.04
 
 # Tested with the below version only
 packer {
@@ -7,7 +7,7 @@ packer {
 
 variable "input_file" {
   type        = string
-  default     = "packer-output/ubuntu2004-base.ovf"
+  default     = "packer-output/ubuntu2004-basic.ovf"
   description = "This should point to the output of the previous build"
 }
 
@@ -25,7 +25,7 @@ variable "output_directory" {
 
 variable "output_filename" {
   type        = string
-  default     = "ubuntu2004-customized"
+  default     = "ubuntu2004-vagrant"
   description = "The name packer should use for the resulting build output"
 }
 
@@ -45,16 +45,22 @@ variable "headless" {
   description = "If set the VM will boot-up in the background"
 }
 
-variable "local_admin_username" {
-  type        = string
-  default     = "admin"
-  description = "The account to be used as a local admin on the machine, this should be passed in as a variable to keep it secure"
+variable "virtualbox_guest_additions_version" {
+    type = string
+    default = "6.1.28"
+    description = "The version of VirtualBox guest additions to be installed"
 }
 
-variable "local_admin_password" {
-  type        = string
-  default     = "admin"
-  description = "The password for the local administrator account, this should be passed in as a variable to keep it secure"
+variable "vagrant_output_directory" {
+    type = string
+    default = "packer-output"
+    description = "The directory to store the built Vagrant box in"
+}
+
+variable "keep_vm" {
+    type = bool
+    default = false
+    description = "If set to true, will keep the VirtualBox OVF file as well as the resulting vagrant box"
 }
 
 source "virtualbox-ovf" "ubuntu2004" {
@@ -65,26 +71,30 @@ source "virtualbox-ovf" "ubuntu2004" {
   ssh_password     = var.ssh_password
   output_directory = var.output_directory
   output_filename  = var.output_filename
-  shutdown_command = "sudo su ${var.local_admin_username} -c \"sudo userdel -rf ${var.ssh_username}; sudo rm /etc/sudoers.d/${var.ssh_username}; sudo /sbin/shutdown -hP now\""
+  shutdown_command = "sudo shutdown -h now"
 }
 
 build {
-  name    = "customized"
+  name    = "vagrant"
   sources = ["sources.virtualbox-ovf.ubuntu2004"]
 
   provisioner "shell" {
     execute_command = "chmod +x {{ .Path }}; echo '${var.ssh_password}' | sudo -S sh -c '{{ .Vars }} {{ .Path }}'"
-    script          = "./files/local_admin.sh"
+    script          = "./files/guest-additions.sh"
     environment_vars = [
-      "LOCAL_ADMIN_USERNAME=${var.local_admin_username}",
-      "LOCAL_ADMIN_PASSWORD=${var.local_admin_password}"
+      "VIRTUALBOX_GUEST_ADDITIONS_VERSION=${var.virtualbox_guest_additions_version}"
     ]
   }
   provisioner "shell" {
     execute_command = "chmod +x {{ .Path }}; echo '${var.ssh_password}' | sudo -S sh -c '{{ .Vars }} {{ .Path }}'"
     scripts = [
       "./files/sshd.sh",
-      "./files/clear-machineid.sh"
+      "./files/clear-machineid.sh",
+      "./files/vagrant.sh"
     ]
+  }
+  post-processor "vagrant"{
+      output = "${var.vagrant_output_directory}/{{.BuildName}}_{{.Provider}}.box"
+      keep_input_artifact = var.keep_vm
   }
 }
