@@ -31,7 +31,7 @@ variable "output_directory" {
 
 variable "output_filename" {
   type        = string
-  default     = "ubuntu1804-basic"
+  default     = "ubuntu1804-base"
   description = "The name packer should use for the resulting build output"
 }
 
@@ -123,6 +123,6 @@ source "virtualbox-iso" "ubuntu1804-iso" {
 }
 
 build {
-  name    = "basic"
+  name    = "base"
   sources = ["sources.virtualbox-iso.ubuntu1804-iso"]
 }
