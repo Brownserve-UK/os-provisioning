@@ -42,7 +42,7 @@ Install-Module -Name PSWindowsUpdate -Repository PSGallery -Scope AllUsers -Forc
 Import-Module PSWindowsUpdate -Force
 
 # Install any updates, we ignore reboots as that'll be taken care of by Packer later on.
-#Install-WindowsUpdate -AcceptAll -IgnoreReboot
+Install-WindowsUpdate -AcceptAll -IgnoreReboot
 
 # Cleanup after ourselves by disabling our auto logon
 $RegistryPath = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'

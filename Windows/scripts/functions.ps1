@@ -88,6 +88,6 @@ function Enable-WinRM
     {
         Stop-Service 'WinRM'
     }
-    Set-Service 'WinRM' -StartupType Automatic
+    Set-Service -Name 'WinRM' -StartupType Automatic -Confirm:$false
     Start-Service 'WinRM'   
 }
