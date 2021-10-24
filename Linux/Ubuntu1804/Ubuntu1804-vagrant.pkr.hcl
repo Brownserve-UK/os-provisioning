@@ -95,6 +95,6 @@ build {
   }
   post-processor "vagrant"{
       output = "${var.vagrant_output_directory}/{{.BuildName}}_{{.Provider}}.box"
-      keep_input_artifact = $var.keep_vm
+      keep_input_artifact = var.keep_vm
   }
 }
