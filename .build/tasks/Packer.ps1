@@ -241,6 +241,7 @@ task SetFloppyFiles -If { $script:SetFloppyFiles -eq $true } CopyScripts, {
     $script:PackerVariables.add('floppy_files', $script:FloppyFiles)
 }
 
+# Synopsis: Passes through the 'files' directory to the VM as a HTTP server
 task SetHTTPDirectory -If { $Script:SetHTTPDirectory } CopyScripts, BuildMacOSPackages, CopyLinuxFiles, {
     Write-Verbose "Setting HTTP directory to $script:PackerFilesDirectory"
     $script:PackerVariables.add('http_directory', ($script:PackerFilesDirectory | 
@@ -248,13 +249,50 @@ task SetHTTPDirectory -If { $Script:SetHTTPDirectory } CopyScripts, BuildMacOSPa
                     Convert-WindowsPath))
 }
 
+# Synopsis: creates a vagrantfile to be used to help configure boxes
+task TemplateVagrantfile PrepareBuildOutputDirectory, {
+    switch ($OSFamily)
+    {
+        'Windows'
+        {
+            # We need to create a vagrantfile to set the communicator and extra memory for Windows boxes
+            $VagrantFileContent = @"
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+Vagrant.configure("2") do |config|
+    # config
+    config.vm.guest = :windows
+    config.vm.communicator = "winrm"
+    config.winrm.retry_limit = 5
+    config.winrm.retry_delay = 20
+    config.vm.provider "virtualbox" do |vb|
+        vb.memory = "4096"
+        vb.cpus = 2
+    end
+end
+"@
+
+            $VagrantfilePath = (Join-Path $script:BuildOutputDirectory 'vagrantfile')
+            New-Item `
+                -Path  $VagrantfilePath `
+                -ItemType File `
+                -Value $VagrantFileContent | Out-Null
+
+            # This probably isn't the best place to set this as it'll be present on ALL builds but we'll worry about that later 😇
+            $script:PackerVariables.add('vagrantfile_template', ($VagrantfilePath | Convert-WindowsPath))
+        }
+        Default {}
+    }
+}
+
 # Synopsis: Builds the Packer images
-task InvokePacker SetSecureVariables, CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirectory, BuildMacOSPackages, CopyLinuxFiles, CopyISO, {
+task InvokePacker SetSecureVariables, CopyWindowsFiles, CopyScripts, SetFloppyFiles, SetHTTPDirectory, BuildMacOSPackages, CopyLinuxFiles, CopyISO, TemplateVagrantfile, {
     switch ($OSFamily)
     {
         # We have special logic for Windows builds as we build multiple versions of the same ISO.
         'Windows'
         {
+            Write-Verbose "Building images for $OSVersion"
             # Need to do a build for each autounattend
             $AutoUnattends = Get-ChildItem $script:BuildOutputDirectory -Recurse | 
                 Where-Object { $_.Name -eq 'autounattend.xml' } |
@@ -264,12 +302,13 @@ task InvokePacker SetSecureVariables, CopyWindowsFiles, CopyScripts, SetFloppyFi
                                 Convert-WindowsPath $_
                             }
 
+            # Run through our builds for each autounattend
             foreach ($AutoUnattend in $AutoUnattends)
             {
+                # Clear out this variable for each autounattend file
+                $script:BaseImagePath = $null
                 $FilesToMove = @()
                 $Subversion = Get-Item $AutoUnattend | Select-Object -ExpandProperty PSParentPath | Split-Path -Leaf
-                
-                Write-Verbose "Now building $OSVersion-$Subversion"
 
                 # Override the default output directory, we need to do this otherwise packer throws a wobbly cos
                 # there's files in the output directory -_-
@@ -287,7 +326,7 @@ task InvokePacker SetSecureVariables, CopyWindowsFiles, CopyScripts, SetFloppyFi
                 $script:PackerVariables.floppy_files = @($AutoUnattend) + $script:DefaultFloppyFiles
 
                 $script:PackerConfigs | ForEach-Object {
-
+                    Write-Verbose "Now building $($_.Name) ($Subversion)"
                     # The directory for packer to store the builds in. DO NOT create it, packer takes care of this and gets
                     # mad if you try to do it yourself
                     # We need a separate one per-config to avoid Packer complaining
@@ -313,15 +352,32 @@ task InvokePacker SetSecureVariables, CopyWindowsFiles, CopyScripts, SetFloppyFi
                         $script:PackerVariables.add('output_filename', $output_filename)
                     }
 
-                    if ($script:PreviousOutput)
-                    {
-                        if ($script:PackerVariables.input_file)
+                    # We need to set this variable otherwise Packer will store it in a location that we don't expect...
+                    if ($_.Name -match '-vagrant')
+                    {   
+                        # For Windows we build the entire path to the box, due to having multiple versions
+                        $BoxPath = Join-Path $script:CompletedBuildDirectory "$($OSVersion)_$($Subversion)_virtualbox.box" | Convert-WindowsPath
+                        # Again another one that'll end up persisting across builds
+                        if (!$script:PackerVariables.vagrant_output_directory)
                         {
-                            $script:PackerVariables.input_file = $script:PreviousOutput
+                            $script:PackerVariables.add('vagrant_output_directory', $BoxPath)
                         }
                         else
                         {
-                            $script:PackerVariables.add('input_file', $script:PreviousOutput)
+                            $script:PackerVariables.vagrant_output_directory = $BoxPath
+                        }
+                    }
+
+                    # Once we've built our base image then our other builds will need to know the path to it.
+                    if ($script:BaseImagePath)
+                    {
+                        if ($script:PackerVariables.input_file)
+                        {
+                            $script:PackerVariables.input_file = $script:BaseImagePath
+                        }
+                        else
+                        {
+                            $script:PackerVariables.add('input_file', $script:BaseImagePath)
                         }
                     }
                 
@@ -347,13 +403,16 @@ task InvokePacker SetSecureVariables, CopyWindowsFiles, CopyScripts, SetFloppyFi
                     }
 
                     # First validate
-                    Invoke-PackerValidate @PackerParams -Verbose
+                    Invoke-PackerValidate @PackerParams
 
                     # Then build
-                    Invoke-PackerBuild @PackerParams -Verbose
+                    Invoke-PackerBuild @PackerParams
 
-                    # After a successful build we store the resulting OVF file in a global variable for the next build to use
-                    $script:PreviousOutput = Get-ChildItem $output_directory | Where-Object { $_.Name -match '.ovf$' } | Convert-Path | Convert-WindowsPath
+                    # After a successful build of our base image we store the resulting OVF file in a variable for the subsequent builds to use
+                    if (!$script:BaseImagePath)
+                    {
+                        $script:BaseImagePath = Get-ChildItem $output_directory | Where-Object { $_.Name -match '-base(?:.*).ovf$' } | Convert-Path | Convert-WindowsPath
+                    }
                     # We can't move the files yet as they may be needed by the next build, so store them for later.
                     $FilesToMove += $output_directory
                 }
@@ -364,8 +423,10 @@ task InvokePacker SetSecureVariables, CopyWindowsFiles, CopyScripts, SetFloppyFi
         }
         Default
         {
-            Write-Verbose "Now building $OSVersion"
+            Write-Verbose "Building images for $OSVersion"
+            $FilesToMove = @()
             $script:PackerConfigs | ForEach-Object {
+                Write-Verbose "Now building $($_.Name)"
                 # The directory for packer to store the builds in. DO NOT create it, packer takes care of this and gets
                 # mad if you try to do it yourself
                 # We need a separate one per-config to avoid Packer complaining
@@ -391,16 +452,23 @@ task InvokePacker SetSecureVariables, CopyWindowsFiles, CopyScripts, SetFloppyFi
                     $script:PackerVariables.add('output_filename', $output_filename)
                 }
 
-                if ($script:PreviousOutput)
+                # Once we've built our base image then our other builds will need to know the path to it.
+                if ($script:BaseImagePath)
                 {
                     if ($script:PackerVariables.input_file)
                     {
-                        $script:PackerVariables.input_file = $script:PreviousOutput
+                        $script:PackerVariables.input_file = $script:BaseImagePath
                     }
                     else
                     {
-                        $script:PackerVariables.add('input_file', $script:PreviousOutput)
+                        $script:PackerVariables.add('input_file', $script:BaseImagePath)
                     }
+                }
+
+                # We need to set this variable otherwise Packer will store it in a location that we don't expect...
+                if ($_.Name -match '-vagrant')
+                {
+                    $script:PackerVariables.add('vagrant_output_directory', ($script:CompletedBuildDirectory | Convert-Path | Convert-WindowsPath))
                 }
                 
                 # Convert our packer variables to make sure they are in a format that Packer can understand
@@ -425,16 +493,20 @@ task InvokePacker SetSecureVariables, CopyWindowsFiles, CopyScripts, SetFloppyFi
                 }
 
                 # First validate
-                Invoke-PackerValidate @PackerParams -Verbose
+                Invoke-PackerValidate @PackerParams
 
                 # Then build
-                Invoke-PackerBuild @PackerParams -Verbose
+                Invoke-PackerBuild @PackerParams
 
-                # After a successful build we store the resulting OVF file in a global variable for the next build to use
-                $script:PreviousOutput = Get-ChildItem $output_directory | Where-Object { $_.Name -match '.ovf$' } | Convert-Path | Convert-WindowsPath
+                # After a successful build of our base image we store the resulting OVF file in a variable for the subsequent builds to use
+                if (!$script:BaseImagePath)
+                {
+                    $script:BaseImagePath = Get-ChildItem $output_directory | Where-Object { $_.Name -match '-base.ovf$' } | Convert-Path | Convert-WindowsPath
+                }
+                $FilesToMove += $output_directory
             }
             # Move the completed builds so they are easy to find!
-            Get-ChildItem $script:PackerOutputDirectory -Recurse | Move-Item -Destination $script:CompletedBuildDirectory -Force
+            $FilesToMove | Get-ChildItem -Recurse | Move-Item -Destination $script:CompletedBuildDirectory -Force
         }
     }
 }
