@@ -87,6 +87,12 @@ variable "keep_vm" {
     description = "If set to true, will keep the VirtualBox OVF file as well as the resulting vagrant box"
 }
 
+variable "vagrantfile_template" {
+  type = string
+  default = ""
+  description = "The path to a vagrantfile template to use"
+}
+
 source "virtualbox-ovf" "windows10" {
   source_path          = var.input_file
   checksum             = var.checksum
@@ -114,7 +120,8 @@ build {
     ]
   }
   post-processor "vagrant"{
-      output = "${var.vagrant_output_directory}/{{.BuildName}}_{{.Provider}}.box"
+      output = "${var.vagrant_output_directory}"
       keep_input_artifact = var.keep_vm
+      vagrantfile_template = var.vagrantfile_template
   }
 }

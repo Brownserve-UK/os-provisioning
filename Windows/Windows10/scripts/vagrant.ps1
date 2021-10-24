@@ -14,18 +14,37 @@ choco install virtualbox-guest-additions-guest.install -y
 
 # Disable UAC
 Write-Host "Disabling UAC"
-Set-ItemProperty -path 'HKLM:\Software\Microsoft\Windows\CurrentVersion\policies\system' -Name 'EnableLUA' -value 0
+Set-ItemProperty -Path 'HKLM:\Software\Microsoft\Windows\CurrentVersion\policies\system' -Name 'EnableLUA' -Value 0
 
 # Create the Vagrant user
 Write-Host "Setting up vagrant user"
+$VagrantUsername = 'vagrant'
+$VagrantPassWord = (ConvertTo-SecureString 'vagrant' -AsPlainText -Force)
 New-LocalUser `
-    -Name 'vagrant' `
+    -Name $VagrantUsername `
     -Description 'Well known vagrant account' `
-    -Password (ConvertTo-SecureString 'vagrant' -AsPlainText -Force) `
+    -Password $VagrantPassWord `
     -AccountNeverExpires `
     -PasswordNeverExpires `
     -UserMayNotChangePassword `
     -Confirm:$false
+
+# Add vagrant to local admins
+Add-LocalGroupMember `
+    -Group 'Administrators' `
+    -Member 'vagrant' `
+    -Confirm:$false
+
+# We need to login as the user one time so their profile gets created, we do this by spawning a Powershell session
+$Credential = [pscredential]$Credential = New-Object System.Management.Automation.PSCredential ($VagrantUsername, $VagrantPassWord)
+try
+{
+    Start-Process powershell -ErrorAction Stop -Credential $Credential -ArgumentList "exit" -Wait -NoNewWindow
+}
+catch
+{
+    throw "Failed to login as supplied user, are you sure the credentials are correct?.`n$($_.Exception.Message)"
+}
 
 # Change the password of the Admin account
 Write-Host "Changing Administrator password"
