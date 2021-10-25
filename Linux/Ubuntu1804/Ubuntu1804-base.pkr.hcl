@@ -125,4 +125,12 @@ source "virtualbox-iso" "ubuntu1804-iso" {
 build {
   name    = "base"
   sources = ["sources.virtualbox-iso.ubuntu1804-iso"]
+
+  provisioner "shell" {
+    execute_command = "chmod +x {{ .Path }}; echo '${var.ssh_password}' | sudo -S sh -c '{{ .Vars }} {{ .Path }}'"
+    scripts = [
+      "./files/dotnet.sh",
+      "./files/powershell.sh"
+    ]
+  }
 }

@@ -119,4 +119,17 @@ source "virtualbox-iso" "ubuntu2004" {
 build {
   name    = "base"
   sources = ["sources.virtualbox-iso.ubuntu2004"]
+
+  provisioner "shell" {
+    execute_command = "chmod +x {{ .Path }}; echo '${var.ssh_password}' | sudo -S sh -c '{{ .Vars }} {{ .Path }}'"
+    inline          = ["apt update; apt upgrade -y"]
+  }
+
+  provisioner "shell" {
+    execute_command = "chmod +x {{ .Path }}; echo '${var.ssh_password}' | sudo -S sh -c '{{ .Vars }} {{ .Path }}'"
+    scripts = [
+      "./files/dotnet.sh",
+      "./files/powershell.sh"
+    ]
+  }
 }
