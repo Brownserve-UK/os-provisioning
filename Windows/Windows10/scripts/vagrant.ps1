@@ -46,6 +46,27 @@ catch
     throw "Failed to login as supplied user, are you sure the credentials are correct?.`n$($_.Exception.Message)"
 }
 
+# Add the well-known vagrant public ssh key
+# Make sure that the .ssh directory exists in your server's user account home folder
+$AdminSSHPath = 'C:\ProgramData\ssh\'
+if (!(Test-Path $AdminSSHPath))
+{
+    New-Item $AdminSSHPath -ItemType Directory -Force
+}
+
+$AuthorizedKeys = Join-Path $AdminSSHPath 'administrators_authorized_keys'
+try
+{
+    Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/hashicorp/vagrant/main/keys/vagrant.pub' -OutFile $AuthorizedKeys
+}
+catch
+{
+    throw $_.Exception.Message   
+}
+
+# Appropriately ACL the authorized_keys file on your server
+& icacls.exe $AuthorizedKeys /inheritance:r /grant "Administrators:F" /grant "SYSTEM:F"
+
 # Change the password of the Admin account
 Write-Host "Changing Administrator password"
 Set-LocalUser `
