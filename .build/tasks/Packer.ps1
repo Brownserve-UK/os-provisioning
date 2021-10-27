@@ -264,7 +264,6 @@ Vagrant.configure("2") do |config|
     config.vm.guest = :windows
     config.vm.communicator = "winrm"
     config.winrm.retry_limit = 5
-    config.winrm.retry_delay = 20
     config.vm.provider "virtualbox" do |vb|
         vb.memory = "4096"
         vb.cpus = 2

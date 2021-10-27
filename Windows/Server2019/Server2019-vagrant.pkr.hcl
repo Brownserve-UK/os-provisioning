@@ -115,6 +115,18 @@ build {
   sources = ["sources.virtualbox-ovf.server2019"]
 
   provisioner "powershell" {
+    elevated_user = var.winrm_username
+    elevated_password = var.winrm_password
+    script =  "./files/openssh.ps1"
+  }
+
+  provisioner "powershell" {
+    elevated_user = var.winrm_username
+    elevated_password = var.winrm_password
+    script =  "./files/performance.ps1"
+  }
+
+  provisioner "powershell" {
     scripts = [
       "./files/vagrant.ps1"
     ]
