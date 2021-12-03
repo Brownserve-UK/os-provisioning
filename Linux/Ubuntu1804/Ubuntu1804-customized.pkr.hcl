@@ -83,7 +83,8 @@ build {
   provisioner "shell" {
     execute_command = "chmod +x {{ .Path }}; echo '${var.ssh_password}' | sudo -S sh -c '{{ .Vars }} {{ .Path }}'"
     scripts = [
-      "./files/clear-machineid.sh"
+      "./files/clear-machineid.sh",
+      "./files/modules.ps1"
     ]
   }
 }
