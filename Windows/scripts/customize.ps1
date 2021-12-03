@@ -10,6 +10,11 @@ choco install dotnet-sdk -y
 # So we'll run it as the shutdown command in Packer, we'll need to do this as SYSTEM though which requires PSEXEC.
 choco install psexec --confirm --ignore-checksums
 
-# Install our Brownserve.PSTools module, as it's a PoSh core module do it in PoSh core!
-$ScriptToRun = {Install-Module -Name 'Brownserve.PSTools' -Repository PSGallery -Scope AllUsers -Force -Confirm:$false}
-& pwsh -command $ScriptToRun
+# Install our Brownserve.PSTools and Puppet-PowerShell modules
+# We need to do this via pwsh as they are not compatible with PowerShell Desktop
+$ScriptToRun = {
+    $ErrorActionPreference = 'Stop'
+    @('Brownserve.PSTools', 'PuppetPowerShell') | 
+        ForEach-Object { Install-Module -Name $_ -Repository PSGallery -Scope AllUsers -Force -Confirm:$false }
+}
+& pwsh -Command $ScriptToRun
