@@ -19,7 +19,7 @@ function Get-Packer
             Mandatory = $false
         )]
         [string]
-        $PackerVersion = "$(if ($Global:RepoPackerVersion){"$Global:RepoPackerVersion"}else{'1.7.6'})",
+        $PackerVersion = "$(if ($Global:RepoPackerVersion){"$Global:RepoPackerVersion"}else{'1.7.8'})",
 
         # The path to download Packer to
         [Parameter(
