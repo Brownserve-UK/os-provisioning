@@ -5,7 +5,6 @@
 $ErrorActionPreference = 'Stop'
 
 REG ADD "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" /V VisualFXSetting /T REG_DWORD /D 2 /F
-REG ADD "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" /V VisualFXSetting /T REG_DWORD /D 3 /F
 REG ADD "HKCU\Control Panel\Desktop" /V "UserPreferencesMask" /T REG_BINARY /D 9012038010000000 /F
 REG ADD "HKEY_CURRENT_USER\Control Panel\Desktop\WindowMetrics" /V MinAnimate /T REG_SZ /D 0 /F
 REG ADD "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /V TaskbarAnimations /T REG_DWORD /D 0 /F
