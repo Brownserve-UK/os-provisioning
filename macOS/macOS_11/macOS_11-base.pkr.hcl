@@ -1,3 +1,5 @@
+# This builds a very basic image from a vanilla ISO
+
 # Tested with the below version only
 packer {
   required_version = ">= 1.7.6"
@@ -29,18 +31,18 @@ variable "output_directory" {
 
 variable "output_filename" {
   type        = string
-  default     = "macOS11"
+  default     = "macOS11-base"
   description = "The name packer should use for the resulting build output"
 }
 
 variable "ssh_password" {
   type    = string
-  default = "packer"
+  default = "vagrant"
 }
 
 variable "ssh_username" {
   type    = string
-  default = "packer"
+  default = "vagrant"
 }
 
 # Depending on the host system speed it can be a while before SSH is ready
@@ -82,7 +84,7 @@ variable "headless" {
   description = "If set the VM will boot-up in the background"
 }
 
-source "virtualbox-iso" "macos11-iso" {
+source "virtualbox-iso" "macos11" {
   guest_os_type        = "MacOS1013_64"
   guest_additions_mode = "disable"
   headless             = var.headless
@@ -123,7 +125,7 @@ source "virtualbox-iso" "macos11-iso" {
     "<leftCtrlon><f2><leftCtrloff>",
     "w<down><down>",
     "<enter>",
-    "curl -o /var/root/packer_user.pkg http://{{ .HTTPIP }}:{{ .HTTPPort }}/packer_user.pkg<enter>",
+    "curl -o /var/root/vagrant_user.pkg http://{{ .HTTPIP }}:{{ .HTTPPort }}/vagrant_user.pkg<enter>",
     "curl -o /var/root/oobe.pkg http://{{ .HTTPIP }}:{{ .HTTPPort }}/oobe.pkg<enter>",
     "curl -o /var/root/configure_ssh.pkg http://{{ .HTTPIP }}:{{ .HTTPPort }}/configure_ssh.pkg<enter>",
     "curl -o /var/root/bootstrap.sh http://{{ .HTTPIP }}:{{ .HTTPPort }}/bootstrap.sh<enter>",
@@ -132,10 +134,9 @@ source "virtualbox-iso" "macos11-iso" {
   ]
 }
 
-# This builds a very basic image from a vanilla ISO
 build {
   name    = "basic"
-  sources = ["sources.virtualbox-iso.macos11-iso"]
+  sources = ["sources.virtualbox-iso.macos11"]
 
   provisioner "shell" {
     scripts = [
