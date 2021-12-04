@@ -14,7 +14,7 @@ diskutil eraseDisk jhfs+ 11vm disk0
 nvram IASUCatalogURL=https://swscan.apple.com/content/catalogs/others/index-10.16seed-10.16-10.15-10.14-10.13-10.12-10.11-10.10-10.9-mountainlion-lion-snowleopard-leopard.merged-1.sucatalog
 
 # Install macOS and inject our configuration packages
-/Volumes/Image\ Volume/Install*.app/Contents/Resources/startosinstall --agreetolicense --rebootdelay 90 --installpackage packer_user.pkg --installpackage oobe.pkg --installpackage configure_ssh.pkg --volume /Volumes/11vm
+/Volumes/Image\ Volume/Install*.app/Contents/Resources/startosinstall --agreetolicense --rebootdelay 90 --installpackage vagrant_user.pkg --installpackage oobe.pkg --installpackage configure_ssh.pkg --volume /Volumes/11vm
 
 echo "Bootstrap complete"
 exit 0
