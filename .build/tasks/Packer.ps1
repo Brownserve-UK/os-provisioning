@@ -521,15 +521,14 @@ task InvokePacker SetSecureVariables, CopyWindowsFiles, CopyScripts, SetFloppyFi
                     try
                     {
                         [xml]$OVFContent = Get-Content -Path $OVFFile -Raw
-                        if ($OVFContent.VirtualBox.Machine.Hardware.BIOS.NVRAM)
+                        if ($OVFContent.Envelope.VirtualSystem.Machine.Hardware.BIOS.NVRAM.path)
                         {
-                            $OVFContent.VirtualBox.Machine.Hardware.BIOS.NVRAM = $NVRAMPath
-                        }
-                        else
+                            $OVFContent.Envelope.VirtualSystem.Machine.Hardware.BIOS.NVRAM.path = $NVRAMPath
+                        } else
                         {
-                            $Element = $OVFContent.CreateElement('NVRAM')
-                            $Element.InnerText = $NVRAMPath
-                            $OVFContent.VirtualBox.Machine.Hardware.BIOS.AppendChild($Element)
+                            $NVRAM = $OVFContent.CreateElement('NVRAM','http://schemas.dmtf.org/ovf/envelope/1')
+                            $NVRAM.SetAttribute('path', $NVRAMPath)
+                            $OVFContent.Envelope.VirtualSystem.Machine.Hardware.BIOS.AppendChild($NVRAM)
                         }
                     }
                     catch
