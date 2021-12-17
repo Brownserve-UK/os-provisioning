@@ -61,7 +61,7 @@ $Script:SetFloppyFiles = $false
 
 # Synopsis: checks that our build artifact path is valid
 task CheckBuildArtifactPath -If ($BuildArtifactPath) {
-    Write-Verbose "Checking BuildArtifactPath is valid"
+    Write-Verbose 'Checking BuildArtifactPath is valid'
     if (!(Test-Path $BuildArtifactPath))
     {
         throw "'$BuildArtifactPath' does not appear to be a valid directory"
@@ -104,6 +104,12 @@ task PrepareBuildOutputDirectory SetBuildInformation, {
     # Create a directory for Packer build artifacts
     $script:PackerOutputDirectory = New-Item (Join-Path $BuildOutputDirectory 'packer') -ItemType Directory -Force
 
+    # Create a directory for VirtualBox to store VM's in
+    # this is useful as it allows us to easily clean up the VM's if the build fails and to grab any additional artifacts we need
+    # (e.g. NVRAM)
+    $script:VBoxOutputDirectory = New-Item (Join-Path $BuildOutputDirectory 'vbox') -ItemType Directory -Force | Convert-Path
+    $script:PackerVariables.add('vm_directory', $script:VBoxOutputDirectory)
+
     # Create a subdirectory in the completed build directory so we can better organize our various output objects
     $script:CompletedBuildDirectory = New-Item (Join-Path $global:CompletedPackerBuildsDirectory $OSFamily $OSVersion) -ItemType Directory -Force
 }
@@ -131,7 +137,7 @@ task BuildMacOSPackages -If ($OSFamily -eq 'macOS') PrepareBuildOutputDirectory,
     {
         $PackagesToBuild = Get-ChildItem $PackagesDirectory `
             -Recurse `
-            -Filter "*.pkgproj" | Select-Object -ExpandProperty PSPath
+            -Filter '*.pkgproj' | Select-Object -ExpandProperty PSPath
     }
     catch
     {
@@ -150,7 +156,7 @@ task BuildMacOSPackages -If ($OSFamily -eq 'macOS') PrepareBuildOutputDirectory,
         $PyCreateUserPkgPath = Join-Path $global:PaketFilesDirectory 'gregneagle' 'pycreateuserpkg' 'createuserpkg' | Convert-Path
         # This isn't executable on download :(
         & chmod +x $PyCreateUserPkgPath
-        Write-Verbose "Building vagrant_user.pkg"
+        Write-Verbose 'Building vagrant_user.pkg'
         Start-SilentProcess `
             -FilePath $PyCreateUserPkgPath `
             -ArgumentList "-n vagrant -f vagrant -p vagrant -u 525 -V 1 -i com.brownserveuk.vagrant -a -A -d $(Join-Path $script:PackerFilesDirectory 'vagrant_user.pkg')"
@@ -215,13 +221,13 @@ task CopyScripts PrepareBuildOutputDirectory, {
     # If we've got common scripts then copy them over here
     if ((Test-Path $script:CommonOSScripts))
     {
-        Write-Verbose "Copying common scripts"
+        Write-Verbose 'Copying common scripts'
         Get-ChildItem $script:CommonOSScripts -Recurse | Copy-Item -Destination $script:PackerFilesDirectory -Force
     }
     # Now copy over any scripts specific to this build (don't need to test-path this one due to way we set the variable)
     if ($script:ConfigScripts)
     {
-        Write-Verbose "Copying build specific scripts"
+        Write-Verbose 'Copying build specific scripts'
         Get-ChildItem $script:ConfigScripts -Recurse | Copy-Item -Destination $script:PackerFilesDirectory -Force
     }
 }
@@ -256,7 +262,7 @@ task TemplateVagrantfile PrepareBuildOutputDirectory, {
         'Windows'
         {
             # We need to create a vagrantfile to set the communicator and extra memory for Windows boxes
-            $VagrantFileContent = @"
+            $VagrantFileContent = @'
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 Vagrant.configure("2") do |config|
@@ -269,7 +275,7 @@ Vagrant.configure("2") do |config|
         vb.cpus = 2
     end
 end
-"@
+'@
 
             $VagrantfilePath = (Join-Path $script:BuildOutputDirectory 'vagrantfile')
             New-Item `
@@ -424,6 +430,8 @@ task InvokePacker SetSecureVariables, CopyWindowsFiles, CopyScripts, SetFloppyFi
         {
             Write-Verbose "Building images for $OSVersion"
             $FilesToMove = @()
+            $OVFFile = $null
+            $NVRAMFile = $null
             $script:PackerConfigs | ForEach-Object {
                 Write-Verbose "Now building $($_.Name)"
                 # The directory for packer to store the builds in. DO NOT create it, packer takes care of this and gets
@@ -502,6 +510,34 @@ task InvokePacker SetSecureVariables, CopyWindowsFiles, CopyScripts, SetFloppyFi
                 {
                     $script:BaseImagePath = Get-ChildItem $output_directory | Where-Object { $_.Name -match '-base.ovf$' } | Convert-Path | Convert-WindowsPath
                 }
+                # Get the last built OVF file (if we've got one)
+                $OVFFile = Get-ChildItem $output_directory | Where-Object { $_.Name -match '.ovf$' } | Convert-Path
+                # Sometimes we can end up with a NVRAM file (currently only macOS) as it stands these are not handled by Packer/VBox very well (read: at all)
+                # So we need to munge the XML a bit to make sure we include the NVRAM file in the OVF, otherwise we'll get dumped at the EFI shell
+                # (the other workaround is to use the ISO to boot into recovery and set the boot disk)
+                $NVRAMPath = Get-ChildItem $output_directory | Where-Object { $_.Name -match '.nvram$' } | Convert-Path
+                if ($NVRAMPath)
+                {
+                    try
+                    {
+                        [xml]$OVFContent = Get-Content -Path $OVFFile -Raw
+                        if ($OVFContent.VirtualBox.Machine.Hardware.BIOS.NVRAM)
+                        {
+                            $OVFContent.VirtualBox.Machine.Hardware.BIOS.NVRAM = $NVRAMPath
+                        }
+                        else
+                        {
+                            $Element = $OVFContent.CreateElement('NVRAM')
+                            $Element.InnerText = $NVRAMPath
+                            $OVFContent.VirtualBox.Machine.Hardware.BIOS.AppendChild($Element)
+                        }
+                    }
+                    catch
+                    {
+                        throw $_.Exception.Message
+                    }
+                }
+                # Add our completed Packer build to the list of files to move later on
                 $FilesToMove += $output_directory
             }
             # Move the completed builds so they are easy to find!
