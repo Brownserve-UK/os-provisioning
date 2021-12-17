@@ -529,6 +529,7 @@ task InvokePacker SetSecureVariables, CopyWindowsFiles, CopyScripts, SetFloppyFi
                             $NVRAM = $OVFContent.CreateElement('NVRAM','http://schemas.dmtf.org/ovf/envelope/1')
                             $NVRAM.SetAttribute('path', $NVRAMPath)
                             $OVFContent.Envelope.VirtualSystem.Machine.Hardware.BIOS.AppendChild($NVRAM)
+                            $OVFContent.Save($OVFFile)
                         }
                     }
                     catch
