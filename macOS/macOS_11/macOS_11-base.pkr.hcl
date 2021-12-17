@@ -35,6 +35,20 @@ variable "output_filename" {
   description = "The name packer should use for the resulting build output"
 }
 
+# We need to set this so it can end up in a location where it's easy to extract the NVRAM file
+variable "vm_directory" {
+  type    = string
+  default = "/tmp/packer-macOS11-base"
+  description = "The directory to use to store the VM"
+}
+
+# We need this to be known in advance so we can easily copy over the NVRAM file that gets created
+variable "vm_name" {
+  type        = string
+  default     = "macOS11-base"
+  description = "This will be the name of the VM within VirtualBox"
+}
+
 variable "ssh_password" {
   type    = string
   default = "vagrant"
@@ -84,7 +98,14 @@ variable "headless" {
   description = "If set the VM will boot-up in the background"
 }
 
+variable "virtualbox_guest_additions_version" {
+    type = string
+    default = "6.1.30"
+    description = "The version of VirtualBox guest additions to be installed"
+}
+
 source "virtualbox-iso" "macos11" {
+  vm_name              = var.vm_name
   guest_os_type        = "MacOS1013_64"
   guest_additions_mode = "disable"
   headless             = var.headless
@@ -98,8 +119,9 @@ source "virtualbox-iso" "macos11" {
   audio_controller     = "hda"
   chipset              = "ich9"
   nic_type             = "82545EM"
-  shutdown_command     = "sudo shutdown -h now"
+  disable_shutdown     = true
   vboxmanage = [
+    ["movevm", "{{.Name}}", "--folder", "${var.vm_directory}"],
     ["modifyvm", "{{.Name}}", "--hpet", "on"],
     ["modifyvm", "{{.Name}}", "--keyboard", "usb"],
     ["modifyvm", "{{.Name}}", "--mouse", "usbtablet"],
@@ -108,6 +130,7 @@ source "virtualbox-iso" "macos11" {
   http_directory         = "${var.http_directory}"
   iso_url                = "${var.iso_url}"
   iso_checksum           = "${var.iso_file_checksum}"
+  bundle_iso             = true
   ssh_username           = "${var.ssh_username}"
   ssh_password           = "${var.ssh_password}"
   boot_wait              = var.boot_wait_iso
@@ -142,6 +165,34 @@ build {
     scripts = [
       "./files/xcode_clt.sh",
       "./files/homebrew.sh",
+      "./files/powershell.sh",
+    ]
+  }
+
+  provisioner "shell" {
+    execute_command = "chmod +x {{ .Path }}; echo '${var.ssh_password}' | sudo -S sh -c '{{ .Vars }} {{ .Path }}'"
+    script          = "./files/guest_additions.ps1"
+    environment_vars = [
+      "VIRTUALBOX_GUEST_ADDITIONS_VERSION=${var.virtualbox_guest_additions_version}"
+    ]
+  }
+
+  provisioner "shell" {
+    execute_command   = "chmod +x {{ .Path }}; echo '${var.ssh_password}' | sudo -S sh -c '{{ .Vars }} {{ .Path }}'"
+    expect_disconnect = true
+    skip_clean        = true
+    script            = "./files/prepare_for_export.sh"
+  }
+
+  # We need to copy the NVRAM file before it gets nuked by Packer after the export
+  provisioner "shell-local" {
+    scripts = [
+      "./files/copy_nvram.ps1"
+    ]
+    environment_vars = [
+      "VM_DIRECTORY=${var.vm_directory}",
+      "OUTPUT_DIRECTORY=${var.output_directory}",
+      "VM_NAME=${var.vm_name}",
     ]
   }
 }
